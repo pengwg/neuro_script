@@ -3,7 +3,7 @@
 cores=6
 
 # Find all the subfolders named dwi and saved the paths to sessions_dir as an array
-mapfile -t sessions_dir < <(find FUS/sub-210-FUS/sub-210-FUS_Day7/ -type d -name dwi)
+mapfile -t sessions_dir < <(find FUS/ -type d -name dwi)
 
 basedir=$(dirname $0)
 
@@ -102,7 +102,7 @@ do
     
     # mrconvert -coord 3 0 wmfod.mif - | mrcat csffod.mif gmfod.mif - vf.mif    
     # mtnormalise wmfod.mif wmfod_norm.mif gmfod.mif gmfod_norm.mif csffod.mif csffod_norm.mif -mask mask.mif
-    
+    echo "${sub_name} processing finished."
     cd $basedir
 done
 
