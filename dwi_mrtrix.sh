@@ -57,26 +57,26 @@ do
     fi
 
 # Wrapper for FSL's topup and eddy
-    if ! [ -f "${sub_name}_preproc.mif" ]; then
-        dwifslpreproc ${sub_name}_den_unr.mif ${sub_name}_preproc.mif -pe_dir AP -rpe_pair -se_epi b0_pair.mif -topup_options " --nthr="$cores -eddy_options " --slm=linear --data_is_shelled"
+    if ! [ -f "${sub_name}_den_unr_preproc.mif" ]; then
+        dwifslpreproc ${sub_name}_den_unr.mif ${sub_name}_den_unr_preproc.mif -pe_dir AP -rpe_pair -se_epi b0_pair.mif -topup_options " --nthr="$cores -eddy_options " --slm=linear --data_is_shelled"
         if ! [ $? -eq 0 ]; then
-            rm ${sub_name}_preproc.mif
+            rm ${sub_name}_den_unr_preproc.mif
             exit 1
         fi
     fi
 
 # Bias correction with ANTs
-    if ! [ -f "${sub_name}_preproc_unbiased.mif" ]; then
-        dwibiascorrect ants ${sub_name}_preproc.mif ${sub_name}_preproc_unbiased.mif -bias bias.mif -nthreads $cores
+    if ! [ -f "${sub_name}_den_unr_preproc_unbiased.mif" ]; then
+        dwibiascorrect ants ${sub_name}_den_unr_preproc.mif ${sub_name}_den_unr_preproc_unbiased.mif -bias bias.mif -nthreads $cores
         if ! [ $? -eq 0 ]; then
-            rm ${sub_name}_preproc_unbiased.mif 
+            rm ${sub_name}_den_unr_preproc_unbiased.mif 
             exit 1
         fi
     fi
    
 # Estimate response function(s) for spherical deconvolution
     if ! [ -f "wm.txt" ]; then
-        dwi2response dhollander ${sub_name}_preproc_unbiased.mif wm.txt gm.txt csf.txt -nthreads $cores
+        dwi2response dhollander ${sub_name}_den_unr_preproc_unbiased.mif wm.txt gm.txt csf.txt -nthreads $cores
         if ! [ $? -eq 0 ]; then
             rm wm.txt gm.txt csf.txt 
             exit 1
@@ -85,7 +85,7 @@ do
     
 # Generate fibre orientation distributions
     if ! [ -f "mask.mif" ]; then
-        dwi2mask ${sub_name}_preproc_unbiased.mif mask.mif -force -nthreads $cores
+        dwi2mask ${sub_name}_den_unr_preproc_unbiased.mif mask.mif -force -nthreads $cores
         if ! [ $? -eq 0 ]; then
             rm mask.mif
             exit 1
@@ -93,15 +93,28 @@ do
     fi
     
     if ! [ -f "wmfod.mif" ]; then
-        dwi2fod msmt_csd ${sub_name}_preproc_unbiased.mif -mask mask.mif wm.txt wmfod.mif gm.txt gmfod.mif csf.txt csffod.mif -nthreads $cores
+        dwi2fod msmt_csd ${sub_name}_den_unr_preproc_unbiased.mif -mask mask.mif wm.txt wmfod.mif gm.txt gmfod.mif csf.txt csffod.mif -nthreads $cores
         if ! [ $? -eq 0 ]; then
             rm wmfod.mif gmfod.mif csffod.mif 
             exit 1
         fi
     fi
     
-    # mrconvert -coord 3 0 wmfod.mif - | mrcat csffod.mif gmfod.mif - vf.mif    
-    # mtnormalise wmfod.mif wmfod_norm.mif gmfod.mif gmfod_norm.mif csffod.mif csffod_norm.mif -mask mask.mif
+# Create volume fraction for result inspection
+    if ! [ -f "vf.mif" ]; then
+        mrconvert -coord 3 0 wmfod.mif - | mrcat csffod.mif gmfod.mif - vf.mif    
+    fi
+    # mrview vf.mif -odf.load_sh wmfod.mif
+ 
+# Intensity normalization 
+    if ! [ -f "wmfod_norm.mif" ]; then
+        mtnormalise wmfod.mif wmfod_norm.mif gmfod.mif gmfod_norm.mif csffod.mif csffod_norm.mif -mask mask.mif -nthreads $cores
+        if ! [ $? -eq 0 ]; then
+            rm wmfod_norm.mif gmfod_norm.mif csffod_norm.mif
+            exit 1
+        fi
+    fi
+    
     echo "${sub_name} processing finished."
     cd $basedir
 done
