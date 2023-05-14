@@ -1,14 +1,24 @@
 #!/bin/bash
 
-cores=6
+cores=10
+
+# Absolute or relative path of the data folder to where the script located
+data_path=FUS/
+
+cd $(dirname %0)
 
 # Find all the subfolders named dwi and saved the paths to sessions_dir as an array
-mapfile -t sessions_dir < <(find FUS/ -type d -name dwi)
+mapfile -t sessions_dir < <(find $data_path -type d -name dwi)
 
-basedir=$(dirname $0)
+basedir=$(pwd)
+
+YELLOW='\033[0;33m'
+GREEN='\033[0;32m'
+NC='\033[0m'
 
 for (( n=0; n<${#sessions_dir[@]}; n++ ))
 do
+    printf "\n${GREEN}Entering ${sessions_dir[$n]} ...$NC\n"
     cd ${sessions_dir[$n]}
     if ! [ -d mrtrick ]; then
         mkdir mrtrick
@@ -17,7 +27,8 @@ do
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
     sub_dwi_nii=$(find . -name *HIGH_RES*.nii* | head -n 1)
     if [ -z "$sub_dwi_nii" ]; then
-        echo "No dwi files in ${sessions_dir[$n]}."
+        echo -e "${YELLOW}No dwi files in ${sessions_dir[$n]}.$NC"
+        cd $basedir
         continue
     fi
     
@@ -119,36 +130,53 @@ do
             exit 1
         fi
     fi
-
+    
+    echo -e "${GREEN}${sessions_dir[$n]} FOD produced and normalized.$NC"
+    
 # Find and convert anatomical T1 to mif
-    if ! [ -d "../../anat" ]; then
+    if [ -d "../../anat" ]; then
         sub_T1_nii=$(find ../../anat -name *T1*.nii* | head -n 1)
     fi
     
     if [ -z "$sub_T1_nii" ]; then
-        echo "No T1 images found in ${sessions_dir[$n]}../../anat."
+        echo -e "${YELLOW}No T1 images found in ${sessions_dir[$n]}/../../anat..$NC"
+        cd $basedir
         continue
     fi
     
     if ! [ -f "5tt_nocoreg.mif" ]; then
         mrconvert $sub_T1_nii T1_raw.mif -force
-        5ttgen fsl T1_raw.mif 5tt_nocoreg.mif
+        5ttgen fsl T1_raw.mif 5tt_nocoreg.mif -nthreads $cores
     fi
     
-    dwiextract ${sub_dwi}_den_unr_preproc_unbiased.mif - -bzero | mrmath – mean mean_b0_preprocessed.mif –axis 3 -force
-    mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
-    flirt –in mean_b0_preprocessed.nii.gz –ref $sub_T1_nii –dof 6 –omat diff2struct_fsl.mat
+    if ! [ -f "gmwmSeed_coreg.mif" ]; then
+        dwiextract ${sub_dwi}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
+        mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force -nthreads $cores
+        flirt -in mean_b0_preprocessed.nii.gz -ref "$sub_T1_nii" -dof 6 -omat diff2struct_fsl.mat -verbose 1
     
-    transformconvert diff2struct_fsl.mat mean_b0_preprocessed.nii.gz T1_raw.mif flirt_import diff2struct_mrtrix.txt -force
-    mrtransform T1_raw.mif –linear diff2struct_mrtrix.txt –inverse T1_coreg.mif -force
-    mrtransform 5tt_nocoreg.mif –linear diff2struct_mrtrix.txt –inverse 5tt_coreg.mif
+        transformconvert diff2struct_fsl.mat mean_b0_preprocessed.nii.gz T1_raw.mif flirt_import diff2struct_mrtrix.txt -force
+        mrtransform T1_raw.mif -linear diff2struct_mrtrix.txt -inverse T1_coreg.mif -force
+        mrtransform 5tt_nocoreg.mif -linear diff2struct_mrtrix.txt -inverse 5tt_coreg.mif -force
     
-    5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif
-    tckgen –act 5tt_coreg.mif –backtrack –seed_gmwmi gmwmSeed_coreg.mif –select 10000000 wmfod_norm.mif tracks_10mio.tck
-    tckedit tracks_10mio.tck –number 200k smallerTracks_200k.tck
-    tcksift –act 5tt_coreg.mif –term_number 1000000 tracks_10mio.tck wmfod_norm.mif sift_1mio.tck
+        5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif -nthreads $cores
+    fi
     
-    echo "${sessions_dir[$n]} processing finished."
+    cd $basedir
+    continue
+    
+    # Skip the following for now
+    
+    if ! [ -f "tracks_10mio.tck" ]; then
+        tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select 10000000 wmfod_norm.mif tracks_10mio.tck -force -nthreads $cores
+        if ! [ $? -eq 0 ]; then
+            rm tracks_10mio.tck
+            exit 1
+        fi
+    fi
+    tckedit tracks_10mio.tck -number 200k smallerTracks_200k.tck -force
+    tcksift -act 5tt_coreg.mif -term_number 1000000 tracks_10mio.tck wmfod_norm.mif sift_1mio.tck -force
+        
+    echo "${sessions_dir[$n]} ACT done."
     cd $basedir
 done
 
