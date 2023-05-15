@@ -20,12 +20,12 @@ for (( n=0; n<${#sessions_dir[@]}; n++ ))
 do
     printf "\n${GREEN}Entering ${sessions_dir[$n]} ...$NC\n"
     cd ${sessions_dir[$n]}
-    if ! [ -d mrtrick ]; then
-        mkdir mrtrick
+    if ! [ -d mrtrix ]; then
+        mkdir mrtrix
     fi
 
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
-    sub_dwi_nii=$(find . -name *HIGH_RES*.nii* | head -n 1)
+    sub_dwi_nii=$(ls *HIGH_RES*.nii* | head -n 1)
     if [ -z "$sub_dwi_nii" ]; then
         echo -e "${YELLOW}No dwi files in ${sessions_dir[$n]}.$NC"
         cd $basedir
@@ -33,19 +33,19 @@ do
     fi
     
     sub_dwi=$(echo "$sub_dwi_nii" | sed 's/\.nii.*$//')
-    if ! [ -f "mrtrick/$sub_dwi.mif" ]; then
-        mrconvert $sub_dwi_nii mrtrick/$sub_dwi.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
+    if ! [ -f "mrtrix/$sub_dwi.mif" ]; then
+        mrconvert $sub_dwi_nii mrtrix/$sub_dwi.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
     fi
     
     sub_PA_niis=$(ls *2mm_PA*.nii*)
     for sub_PA_nii in $sub_PA_niis; do
         sub_PA=$(echo "$sub_PA_nii" | sed 's/\.nii.*$//')
-        if ! [ -f "mrtrick/$sub_PA.mif" ]; then
-            mrconvert $sub_PA_nii mrtrick/$sub_PA.mif
+        if ! [ -f "mrtrix/$sub_PA.mif" ]; then
+            mrconvert $sub_PA_nii mrtrix/$sub_PA.mif
         fi
     done
     
-    cd mrtrick
+    cd mrtrix
     
 # Denoise and degibbs
     if ! [ -f "${sub_dwi}_den.mif" ]; then
