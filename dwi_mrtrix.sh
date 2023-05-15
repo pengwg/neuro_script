@@ -101,11 +101,11 @@ do
     
 # Generate fibre orientation distributions
     if ! [ -f "mask.mif" ]; then
-        dwi2mask ${sub_dwi}_den_unr_preproc_unbiased.mif mask.mif -force -nthreads $cores
-        if ! [ $? -eq 0 ]; then
-            rm mask.mif
-            exit 1
-        fi
+        #dwi2mask ${sub_dwi}_den_unr_preproc_unbiased.mif mask.mif -force -nthreads $cores
+        
+        mrconvert ${sub_dwi}_den_unr_preproc_unbiased.mif ${sub_dwi}_den_unr_preproc_unbiased.nii.gz -force
+        bet ${sub_dwi}_den_unr_preproc_unbiased.nii.gz ${sub_dwi}_den_unr_preproc_unbiased -m -n -f 0.2  
+        mrconvert ${sub_dwi}_den_unr_preproc_unbiased_mask.nii.gz mask.mif
     fi
     
     if ! [ -f "wmfod.mif" ]; then
@@ -151,7 +151,7 @@ do
     
     if ! [ -f "gmwmSeed_coreg.mif" ]; then
         dwiextract ${sub_dwi}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
-        mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force -nthreads $cores
+        mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
         flirt -in mean_b0_preprocessed.nii.gz -ref "$sub_T1_nii" -dof 6 -omat diff2struct_fsl.mat -verbose 1
     
         transformconvert diff2struct_fsl.mat mean_b0_preprocessed.nii.gz T1_raw.mif flirt_import diff2struct_mrtrix.txt -force
