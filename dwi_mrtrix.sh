@@ -100,7 +100,7 @@ do
     fi
     
 # Generate fibre orientation distributions
-    if ! [ -f "mask.mif" ]; then
+    if ! [ -f "${sub_dwi}_den_unr_preproc_unbiased_mask.nii.gz" ]; then
         #dwi2mask ${sub_dwi}_den_unr_preproc_unbiased.mif mask.mif -force -nthreads $cores
         
         mrconvert ${sub_dwi}_den_unr_preproc_unbiased.mif ${sub_dwi}_den_unr_preproc_unbiased.nii.gz -force
@@ -143,7 +143,8 @@ do
         cd $basedir
         continue
     fi
-    
+
+# Create 5tt registered T1 volume and gray matter/white matter boundary seed
     if ! [ -f "5tt_nocoreg.mif" ]; then
         mrconvert $sub_T1_nii T1_raw.mif -force
         5ttgen fsl T1_raw.mif 5tt_nocoreg.mif -nthreads $cores
@@ -160,23 +161,27 @@ do
     
         5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif -nthreads $cores
     fi
-    
-    cd $basedir
-    continue
-    
-    # Skip the following for now
-    
-    if ! [ -f "tracks_10mio.tck" ]; then
-        tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select 10000000 wmfod_norm.mif tracks_10mio.tck -force -nthreads $cores
+
+# Run ACT, just create 100k streamlines for now
+    if ! [ -f "tracks_100k.tck" ]; then
+        tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select 100000 wmfod_norm.mif tracks_100k.tck -nthreads $cores
         if ! [ $? -eq 0 ]; then
-            rm tracks_10mio.tck
+            rm tracks_100k.tck
             exit 1
         fi
     fi
-    tckedit tracks_10mio.tck -number 200k smallerTracks_200k.tck -force
-    tcksift -act 5tt_coreg.mif -term_number 1000000 tracks_10mio.tck wmfod_norm.mif sift_1mio.tck -force
-        
-    echo "${sessions_dir[$n]} ACT done."
+    # tckedit tracks_10mio.tck -number 200k smallerTracks_200k.tck -force
+    # tcksift -act 5tt_coreg.mif -term_number 1000000 tracks_10mio.tck wmfod_norm.mif sift_1mio.tck -force
+    
+    if ! [ -f "${sub_dwi}_dti_V1.nii.gz" ]; then
+        dtifit -k ${sub_dwi}_den_unr_preproc_unbiased.nii.gz \
+               -o ${sub_dwi}_dti \
+               -m ${sub_dwi}_den_unr_preproc_unbiased_mask.nii.gz \
+               -r ../$sub_dwi.bvec \
+               -b ../$sub_dwi.bval
+    fi
+    
+    echo -e "${GREEN}${sessions_dir[$n]} done.$NC"
     cd $basedir
 done
 
