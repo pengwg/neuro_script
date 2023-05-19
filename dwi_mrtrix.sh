@@ -170,9 +170,14 @@ do
             exit 1
         fi
     fi
-    # tckedit tracks_10mio.tck -number 200k smallerTracks_200k.tck -force
-    # tcksift -act 5tt_coreg.mif -term_number 1000000 tracks_10mio.tck wmfod_norm.mif sift_1mio.tck -force
+    # tckedit tracks_10M.tck -number 200k smallerTracks_200k.tck -force
+    # mrview ${sub_dwi}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
+    # tcksift -act 5tt_coreg.mif -term_number 1000000 tracks_10M.tck wmfod_norm.mif sift_1M.tck -force
     
+#Connectome with individual freesurfer atlas to get the regions:
+    labelconvert ~/RNI/FUS/FS/FS_sub-214-FUS_BL/mri/aparc+aseg.mgz $FREESURFER_HOME/FreeSurferColorLUT.txt /usr/local/mrtrix3/share/mrtrix3/labelconvert/fs_default.txt sub-214_parcels.mif
+    tck2connectome -symmetric -zero_diagonal -scale_invnodevol -tck_weights_in sift_1M.txt tracks_10M.tck sub-214 _parcels.mif sub-214_parcels.csv -out_assignment assignments_sub-214_parcels.csv
+
     if ! [ -f "${sub_dwi}_dti_V1.nii.gz" ]; then
         dtifit -k ${sub_dwi}_den_unr_preproc_unbiased.nii.gz \
                -o ${sub_dwi}_dti \
