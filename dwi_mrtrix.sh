@@ -5,6 +5,9 @@ cores=10
 # Absolute or relative path of the data folder to where the script located
 data_path=FUS/
 
+# Freesurfer subject path
+# SUBJECTS_DIR=/vulcan/Work/fusOUD/FUS/FS/
+
 cd $(dirname %0)
 
 # Find all the subfolders named dwi and saved the paths to sessions_dir as an array
@@ -27,7 +30,7 @@ do
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
     sub_dwi_nii=$(ls *HIGH_RES*.nii* | head -n 1)
     if [ -z "$sub_dwi_nii" ]; then
-        echo -e "${YELLOW}No dwi files in ${sessions_dir[$n]}.$NC"
+        echo -e "${YELLOW}DWI files not found in ${sessions_dir[$n]}.$NC"
         cd $basedir
         continue
     fi
@@ -131,7 +134,18 @@ do
         fi
     fi
     
-    echo -e "${GREEN}${sessions_dir[$n]} FOD produced and normalized.$NC"
+    echo -e "${GREEN}${sessions_dir[$n]} FOD done.$NC"
+
+# Run DTIFIT
+    if ! [ -f "${sub_dwi}_dti_V1.nii.gz" ]; then
+        dtifit -k ${sub_dwi}_den_unr_preproc_unbiased.nii.gz \
+               -o ${sub_dwi}_dti \
+               -m ${sub_dwi}_den_unr_preproc_unbiased_mask.nii.gz \
+               -r ../$sub_dwi.bvec \
+               -b ../$sub_dwi.bval
+    fi
+    
+    echo -e "${GREEN}${sessions_dir[$n]} DTI done.$NC"
     
 # Find and convert anatomical T1 to mif
     if [ -d "../../anat" ]; then
@@ -139,7 +153,7 @@ do
     fi
     
     if [ -z "$sub_T1_nii" ]; then
-        echo -e "${YELLOW}No T1 images found in ${sessions_dir[$n]}/../../anat..$NC"
+        echo -e "${YELLOW}T1 images not found in ${sessions_dir[$n]}/../../anat..$NC"
         cd $basedir
         continue
     fi
@@ -162,31 +176,44 @@ do
         5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif -nthreads $cores
     fi
 
-# Run ACT, just create 100k streamlines for now
-    if ! [ -f "tracks_100k.tck" ]; then
-        tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select 100000 wmfod_norm.mif tracks_100k.tck -nthreads $cores
+# For testing purpose, run 1M tracks only
+    if ! [ -f "tracks_1M.tck" ]; then
+        tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select 1000k wmfod_norm.mif tracks_1M.tck -nthreads $cores
         if ! [ $? -eq 0 ]; then
-            rm tracks_100k.tck
+            rm tracks_1M.tck
             exit 1
         fi
     fi
     # tckedit tracks_10M.tck -number 200k smallerTracks_200k.tck -force
     # mrview ${sub_dwi}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
-    # tcksift -act 5tt_coreg.mif -term_number 1000000 tracks_10M.tck wmfod_norm.mif sift_1M.tck -force
-    
-#Connectome with individual freesurfer atlas to get the regions:
-    labelconvert ~/RNI/FUS/FS/FS_sub-214-FUS_BL/mri/aparc+aseg.mgz $FREESURFER_HOME/FreeSurferColorLUT.txt /usr/local/mrtrix3/share/mrtrix3/labelconvert/fs_default.txt sub-214_parcels.mif
-    tck2connectome -symmetric -zero_diagonal -scale_invnodevol -tck_weights_in sift_1M.txt tracks_10M.tck sub-214 _parcels.mif sub-214_parcels.csv -out_assignment assignments_sub-214_parcels.csv
-
-    if ! [ -f "${sub_dwi}_dti_V1.nii.gz" ]; then
-        dtifit -k ${sub_dwi}_den_unr_preproc_unbiased.nii.gz \
-               -o ${sub_dwi}_dti \
-               -m ${sub_dwi}_den_unr_preproc_unbiased_mask.nii.gz \
-               -r ../$sub_dwi.bvec \
-               -b ../$sub_dwi.bval
+    if ! [ -f "sift_100k.tck" ]; then
+        tcksift -act 5tt_coreg.mif -term_number 100k tracks_1M.tck wmfod_norm.mif sift_100k.tck -nthreads $cores
     fi
     
-    echo -e "${GREEN}${sessions_dir[$n]} done.$NC"
+    echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
+    
+# The following use the session path to derive the freesurfer subject name, e.g. /FUS/sub-212-FUS/BL/dwi -> FS_sub-212-FUS_BL
+    IFS='/' read -ra parts <<< ${sessions_dir[$n]}
+    N=${#parts[@]}
+    fs_subject="FS_${parts[N-3]}_${parts[N-2]}"
+    
+    if ! [ -f "$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz" ]; then
+        echo -e "${YELLOW}$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz not found."
+        cd $basedir
+        continue
+    fi
+ 
+ # Connectome with individual freesurfer atlas to get the regions
+    if ! [ -f "fs_parcels.csv" ]; then      
+        labelconvert $SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz \
+                     $FREESURFER_HOME/FreeSurferColorLUT.txt \
+                     $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
+                     fs_parcels.mif -force
+           
+        tck2connectome -symmetric -zero_diagonal -scale_invnodevol tracks_1M.tck fs_parcels.mif fs_parcels.csv -out_assignment fs_assignments_parcels.csv
+    fi
+    
+    echo -e "${GREEN}${sessions_dir[$n]} connectome done.$NC"
     cd $basedir
 done
 
