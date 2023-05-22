@@ -185,9 +185,12 @@ do
     fi
     # tckedit tracks_10M.tck -number 200k smallerTracks_200k.tck -force
     # mrview ${sub_dwi}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
+    if ! [ -f "sift_1M.tck" ]; then
+        tcksift -act 5tt_coreg.mif -term_number 1000k tracks_10M.tck wmfod_norm.mif sift_1M.tck -nthreads $cores
+    fi
+    
     if ! [ -f "sift_1M.txt" ]; then
-        # tcksift -act 5tt_coreg.mif -term_number 1000k tracks_10M.tck wmfod_norm.mif sift_1M.tck -nthreads $cores
-        tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt tracks_10M.tck wmfod_norm.mif sift_1M.txt -nthreads $cores
+        tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt sift_1M.tck wmfod_norm.mif sift_1M.txt -nthreads $cores
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
@@ -210,7 +213,9 @@ do
                      $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
                      fs_parcels.mif -force
            
-        tck2connectome -symmetric -zero_diagonal -scale_invnodevol -tck_weights_in sift_1M.txt tracks_10M.tck fs_parcels.mif fs_parcels.csv -out_assignment fs_assignments_parcels.csv
+        tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
+                       -tck_weights_in sift_1M.txt tracks_10M.tck fs_parcels.mif fs_parcels.csv \
+                       -out_assignment fs_assignments_parcels.csv
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} connectome done.$NC"
