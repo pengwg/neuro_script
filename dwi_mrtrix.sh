@@ -28,16 +28,21 @@ do
     fi
 
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
-    sub_dwi_nii=$(ls *HIGH_RES*.nii* | head -n 1)
+    sub_dwi_nii=$(ls *HIGH_RES_??.nii* | head -n 1)
     if [ -z "$sub_dwi_nii" ]; then
         echo -e "${YELLOW}DWI files not found in ${sessions_dir[$n]}.$NC"
         cd $basedir
         continue
     fi
-    
     sub_dwi=$(echo "$sub_dwi_nii" | sed 's/\.nii.*$//')
-    if ! [ -f "mrtrix/$sub_dwi.mif" ]; then
-        mrconvert $sub_dwi_nii mrtrix/$sub_dwi.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
+    
+# The following use the session path to construct subject name, e.g. /FUS/sub-212/ses-1/dwi -> sub-212_ses-1    
+    IFS='/' read -ra parts <<< ${sessions_dir[$n]}
+    N=${#parts[@]}
+    sub_name="${parts[N-3]}_${parts[N-2]}"
+        
+    if ! [ -f "mrtrix/$sub_name.mif" ]; then
+        mrconvert $sub_dwi_nii mrtrix/$sub_name.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
     fi
     
     sub_PA_niis=$(ls *2mm_PA*.nii*)
@@ -51,51 +56,51 @@ do
     cd mrtrix
     
 # Denoise and degibbs
-    if ! [ -f "${sub_dwi}_den.mif" ]; then
-        dwidenoise $sub_dwi.mif ${sub_dwi}_den.mif -noise noise.mif -nthreads $cores
+    if ! [ -f "${sub_name}_den.mif" ]; then
+        dwidenoise $sub_name.mif ${sub_name}_den.mif -noise noise.mif -nthreads $cores
         if ! [ $? -eq 0 ]; then
-            rm ${sub_dwi}_den.mif noise.mif
+            rm ${sub_name}_den.mif noise.mif
             exit 1
         fi
-        mrcalc $sub_dwi.mif  ${sub_dwi}_den.mif -subtract residual.mif -force
+        mrcalc $sub_name.mif  ${sub_name}_den.mif -subtract residual.mif -force
     fi
     
-    if ! [ -f "${sub_dwi}_den_unr.mif" ]; then
-        mrdegibbs ${sub_dwi}_den.mif ${sub_dwi}_den_unr.mif -nthreads $cores
+    if ! [ -f "${sub_name}_den_unr.mif" ]; then
+        mrdegibbs ${sub_name}_den.mif ${sub_name}_den_unr.mif -nthreads $cores
         if ! [ $? -eq 0 ]; then
-            rm ${sub_dwi}_den_unr.mif
+            rm ${sub_name}_den_unr.mif
             exit 1
         fi
     fi
 
 # Compute b0 AP and PA
     if ! [ -f b0_pair.mif ]; then
-        dwiextract ${sub_dwi}_den_unr.mif - -bzero | mrmath - mean mean_b0_AP.mif -axis 3 -force
+        dwiextract ${sub_name}_den_unr.mif - -bzero | mrmath - mean mean_b0_AP.mif -axis 3 -force
         mrcat *2mm_PA*.mif -axis 3 - | mrmath - mean mean_b0_PA.mif -axis 3 -force
         mrcat mean_b0_AP.mif mean_b0_PA.mif -axis 3 b0_pair.mif
     fi
 
 # Wrapper for FSL's topup and eddy
-    if ! [ -f "${sub_dwi}_den_unr_preproc.mif" ]; then
-        dwifslpreproc ${sub_dwi}_den_unr.mif ${sub_dwi}_den_unr_preproc.mif -pe_dir AP -rpe_pair -se_epi b0_pair.mif -eddy_options " --slm=linear --data_is_shelled"
+    if ! [ -f "${sub_name}_den_unr_preproc.mif" ]; then
+        dwifslpreproc ${sub_name}_den_unr.mif ${sub_name}_den_unr_preproc.mif -pe_dir AP -rpe_pair -se_epi b0_pair.mif -eddy_options " --slm=linear --data_is_shelled"
         if ! [ $? -eq 0 ]; then
-            rm ${sub_dwi}_den_unr_preproc.mif
+            rm ${sub_name}_den_unr_preproc.mif
             exit 1
         fi
     fi
 
 # Bias correction with ANTs
-    if ! [ -f "${sub_dwi}_den_unr_preproc_unbiased.mif" ]; then
-        dwibiascorrect ants ${sub_dwi}_den_unr_preproc.mif ${sub_dwi}_den_unr_preproc_unbiased.mif -bias bias.mif -nthreads $cores
+    if ! [ -f "${sub_name}_den_unr_preproc_unbiased.mif" ]; then
+        dwibiascorrect ants ${sub_name}_den_unr_preproc.mif ${sub_name}_den_unr_preproc_unbiased.mif -bias bias.mif -nthreads $cores
         if ! [ $? -eq 0 ]; then
-            rm ${sub_dwi}_den_unr_preproc_unbiased.mif 
+            rm ${sub_name}_den_unr_preproc_unbiased.mif 
             exit 1
         fi
     fi
    
 # Estimate response function(s) for spherical deconvolution
     if ! [ -f "wm.txt" ]; then
-        dwi2response dhollander ${sub_dwi}_den_unr_preproc_unbiased.mif wm.txt gm.txt csf.txt -nthreads $cores
+        dwi2response dhollander ${sub_name}_den_unr_preproc_unbiased.mif wm.txt gm.txt csf.txt -nthreads $cores
         if ! [ $? -eq 0 ]; then
             rm wm.txt gm.txt csf.txt 
             exit 1
@@ -103,16 +108,16 @@ do
     fi
     
 # Generate fibre orientation distributions
-    if ! [ -f "${sub_dwi}_den_unr_preproc_unbiased_mask.nii.gz" ]; then
-        #dwi2mask ${sub_dwi}_den_unr_preproc_unbiased.mif mask.mif -force -nthreads $cores
+    if ! [ -f "${sub_name}_den_unr_preproc_unbiased_mask.nii.gz" ]; then
+        #dwi2mask ${sub_name}_den_unr_preproc_unbiased.mif mask.mif -force -nthreads $cores
         
-        mrconvert ${sub_dwi}_den_unr_preproc_unbiased.mif ${sub_dwi}_den_unr_preproc_unbiased.nii.gz -force
-        bet ${sub_dwi}_den_unr_preproc_unbiased.nii.gz ${sub_dwi}_den_unr_preproc_unbiased -m -n -f 0.2  
-        mrconvert ${sub_dwi}_den_unr_preproc_unbiased_mask.nii.gz mask.mif
+        mrconvert ${sub_name}_den_unr_preproc_unbiased.mif ${sub_name}_den_unr_preproc_unbiased.nii.gz -force
+        bet ${sub_name}_den_unr_preproc_unbiased.nii.gz ${sub_name}_den_unr_preproc_unbiased -m -n -f 0.2  
+        mrconvert ${sub_name}_den_unr_preproc_unbiased_mask.nii.gz mask.mif
     fi
     
     if ! [ -f "wmfod.mif" ]; then
-        dwi2fod msmt_csd ${sub_dwi}_den_unr_preproc_unbiased.mif -mask mask.mif wm.txt wmfod.mif gm.txt gmfod.mif csf.txt csffod.mif -nthreads $cores
+        dwi2fod msmt_csd ${sub_name}_den_unr_preproc_unbiased.mif -mask mask.mif wm.txt wmfod.mif gm.txt gmfod.mif csf.txt csffod.mif -nthreads $cores
         if ! [ $? -eq 0 ]; then
             rm wmfod.mif gmfod.mif csffod.mif 
             exit 1
@@ -137,10 +142,10 @@ do
     echo -e "${GREEN}${sessions_dir[$n]} FOD done.$NC"
 
 # Run DTIFIT
-    if ! [ -f "${sub_dwi}_dti_V1.nii.gz" ]; then
-        dtifit -k ${sub_dwi}_den_unr_preproc_unbiased.nii.gz \
-               -o ${sub_dwi}_dti \
-               -m ${sub_dwi}_den_unr_preproc_unbiased_mask.nii.gz \
+    if ! [ -f "${sub_name}_dti_V1.nii.gz" ]; then
+        dtifit -k ${sub_name}_den_unr_preproc_unbiased.nii.gz \
+               -o ${sub_name}_dti \
+               -m ${sub_name}_den_unr_preproc_unbiased_mask.nii.gz \
                -r ../$sub_dwi.bvec \
                -b ../$sub_dwi.bval
     fi
@@ -165,7 +170,7 @@ do
     fi
     
     if ! [ -f "gmwmSeed_coreg.mif" ]; then
-        dwiextract ${sub_dwi}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
+        dwiextract ${sub_name}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
         flirt -in mean_b0_preprocessed.nii.gz -ref "$sub_T1_nii" -dof 6 -omat diff2struct_fsl.mat -verbose 1
     
@@ -184,21 +189,19 @@ do
         fi
     fi
     # tckedit tracks_10M.tck -number 200k smallerTracks_200k.tck -force
-    # mrview ${sub_dwi}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
+
+    # mrview ${sub_name}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
     if ! [ -f "sift_1M.tck" ]; then
         tcksift -act 5tt_coreg.mif -term_number 1000k tracks_10M.tck wmfod_norm.mif sift_1M.tck -nthreads $cores
     fi
-    
+
     if ! [ -f "sift_1M.txt" ]; then
         tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt sift_1M.tck wmfod_norm.mif sift_1M.txt -nthreads $cores
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
     
-# The following use the session path to derive the freesurfer subject name, e.g. /FUS/sub-212-FUS/BL/dwi -> FS_sub-212-FUS_BL
-    IFS='/' read -ra parts <<< ${sessions_dir[$n]}
-    N=${#parts[@]}
-    fs_subject="FS_${parts[N-3]}_${parts[N-2]}"
+    fs_subject="FS_$sub_name"
     
     if ! [ -f "$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz" ]; then
         echo -e "${YELLOW}$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz not found.$NC"
