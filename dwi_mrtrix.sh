@@ -26,7 +26,8 @@ do
     if ! [ -d mrtrix ]; then
         mkdir mrtrix
     fi
-
+    
+    chmod a+x *
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
     sub_dwi_nii=$(ls *HIGH_RES_??.nii* | head -n 1)
     if [ -z "$sub_dwi_nii" ]; then
@@ -54,6 +55,7 @@ do
     done
     
     cd mrtrix
+    chmod a+x *
     
 # Denoise and degibbs
     if ! [ -f "${sub_name}_den.mif" ]; then
@@ -140,7 +142,8 @@ do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} FOD done.$NC"
-
+    chmod a+x *
+    
 # Run DTIFIT
     if ! [ -f "${sub_name}_dti_V1.nii.gz" ]; then
         dtifit -k ${sub_name}_den_unr_preproc_unbiased.nii.gz \
@@ -166,6 +169,7 @@ do
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed
     if ! [ -f "5tt_nocoreg.mif" ]; then
         mrconvert $sub_T1_nii T1_raw.mif -force
+        chmod a+x T1_raw.mif
         5ttgen fsl T1_raw.mif 5tt_nocoreg.mif -nthreads $cores
     fi
     
