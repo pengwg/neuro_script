@@ -154,7 +154,7 @@ do
     
 # Find and convert anatomical T1 to mif
     if [ -d "../../anat" ]; then
-        sub_T1_nii=$(find ../../anat -name *T1*.nii* | head -n 1)
+        sub_T1_nii=$(find ../../anat -name '*T1*.nii*' | head -n 1)
     fi
     
     if [ -z "$sub_T1_nii" ]; then
@@ -172,12 +172,18 @@ do
     if ! [ -f "gmwmSeed_coreg.mif" ]; then
         dwiextract ${sub_name}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
+        sub_T1_nii=../../anat/sub-213-FUS_T1_RAGE_SAG_2.nii
         flirt -in mean_b0_preprocessed.nii.gz -ref "$sub_T1_nii" -dof 6 -omat diff2struct_fsl.mat -verbose 1
-    
-        transformconvert diff2struct_fsl.mat mean_b0_preprocessed.nii.gz T1_raw.mif flirt_import diff2struct_mrtrix.txt -force
+        
+        mrconvert $sub_T1_nii T1_raw.mif -force
+        
+        transformconvert diff2struct_fsl.mat mean_b0_preprocessed.nii.gz $sub_T1_nii flirt_import diff2struct_mrtrix.txt -force
         mrtransform T1_raw.mif -linear diff2struct_mrtrix.txt -inverse T1_coreg.mif -force
         mrtransform 5tt_nocoreg.mif -linear diff2struct_mrtrix.txt -inverse 5tt_coreg.mif -force
-    
+        
+        mrconvert T1_raw.mif T1_raw.nii.gz -force
+        mrconvert T1_coreg.mif T1_coreg.nii.gz -force      
+        
         5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif -nthreads $cores
     fi
 
