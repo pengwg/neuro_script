@@ -154,7 +154,7 @@ do
     
 # Find and convert anatomical T1 to mif
     if [ -d "../../anat" ]; then
-        sub_T1_nii=$(find ../../anat -name *T1*.nii* | head -n 1)
+        sub_T1_nii=$(find ../../anat -name "*T1*.nii*" | head -n 1)
     fi
     
     if [ -z "$sub_T1_nii" ]; then
@@ -174,7 +174,7 @@ do
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
         flirt -in mean_b0_preprocessed.nii.gz -ref "$sub_T1_nii" -dof 6 -omat diff2struct_fsl.mat -verbose 1
     
-        transformconvert diff2struct_fsl.mat mean_b0_preprocessed.nii.gz T1_raw.mif flirt_import diff2struct_mrtrix.txt -force
+        transformconvert diff2struct_fsl.mat mean_b0_preprocessed.nii.gz "$sub_T1_nii" flirt_import diff2struct_mrtrix.txt -force
         mrtransform T1_raw.mif -linear diff2struct_mrtrix.txt -inverse T1_coreg.mif -force
         mrtransform 5tt_nocoreg.mif -linear diff2struct_mrtrix.txt -inverse 5tt_coreg.mif -force
     
