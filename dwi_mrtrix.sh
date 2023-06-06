@@ -164,20 +164,20 @@ do
     fi
 
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed
-    if ! [ -f "5tt_nocoreg.mif" ]; then
-        mrconvert $sub_T1_nii T1_raw.mif -force
-        5ttgen fsl T1_raw.mif 5tt_nocoreg.mif -nthreads $cores
-    fi
-    
-    if ! [ -f "gmwmSeed_coreg.mif" ]; then
+    if ! [ -f "T1_raw_Warped.nii.gz" ]; then
         dwiextract ${sub_name}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
-        flirt -in mean_b0_preprocessed.nii.gz -ref "$sub_T1_nii" -dof 6 -omat diff2struct_fsl.mat -verbose 1
+        
+        antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m "$sub_T1_nii" -o T1_raw_
+    fi
     
-        transformconvert diff2struct_fsl.mat mean_b0_preprocessed.nii.gz "$sub_T1_nii" flirt_import diff2struct_mrtrix.txt -force
-        mrtransform T1_raw.mif -linear diff2struct_mrtrix.txt -inverse T1_coreg.mif -force
-        mrtransform 5tt_nocoreg.mif -linear diff2struct_mrtrix.txt -inverse 5tt_coreg.mif -force
+    if ! [ -f "5tt_coreg.mif" ]; then
+        mrconvert "$sub_T1_nii" T1_raw.mif -force
+        mrconvert T1_raw_Warped.nii.gz T1_coreg.mif -force
+        5ttgen fsl T1_coreg.mif 5tt_coreg.mif -nthreads $cores
+    fi
     
+    if ! [ -f "gmwmSeed_coreg.mif.mif" ]; then
         5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif -nthreads $cores
     fi
 
