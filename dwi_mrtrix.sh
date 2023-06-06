@@ -164,16 +164,17 @@ do
     fi
 
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed
-    if ! [ -f "T1_raw_Warped.nii.gz" ]; then
+    if ! [ -f "T1_coreg.nii.gz" ]; then
         dwiextract ${sub_name}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
         
-        antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m "$sub_T1_nii" -o T1_raw_
+        antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m "$sub_T1_nii" -o T1todwi_
+        antsApplyTransforms -d 3 -i "$sub_T1_nii"  -o T1_coreg.nii.gz -r "$sub_T1_nii" -t T1todwi_0GenericAffine.mat
     fi
     
     if ! [ -f "5tt_coreg.mif" ]; then
         mrconvert "$sub_T1_nii" T1_raw.mif -force
-        mrconvert T1_raw_Warped.nii.gz T1_coreg.mif -force
+        mrconvert T1_coreg.nii.gz T1_coreg.mif -force
         5ttgen fsl T1_coreg.mif 5tt_coreg.mif -nthreads $cores
     fi
     
