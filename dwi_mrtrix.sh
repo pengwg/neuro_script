@@ -67,6 +67,8 @@ do
         mrcalc $sub_name.mif  ${sub_name}_den.mif -subtract residual.mif -force
     fi
     
+    chmod a+x *
+    
     if ! [ -f "${sub_name}_den_unr.mif" ]; then
         mrdegibbs ${sub_name}_den.mif ${sub_name}_den_unr.mif -nthreads $cores
         if ! [ $? -eq 0 ]; then
@@ -226,6 +228,8 @@ do
                        -tck_weights_in sift_1M.txt tracks_10M.tck fs_parcels.mif ${sub_name}_fs_parcels.csv \
                        -out_assignment ${sub_name}_fs_assignments_parcels.csv
     fi
+    
+    chmod a+x *
     
     echo -e "${GREEN}${sessions_dir[$n]} connectome done.$NC"
     cd $basedir
