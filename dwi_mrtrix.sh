@@ -223,7 +223,7 @@ do
                      fs_parcels.mif -force
            
         tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
-                       -tck_weights_in sift_1M.txt tracks_1M.tck fs_parcels.mif ${sub_name}_fs_parcels.csv \
+                       -tck_weights_in sift_1M.txt tracks_10M.tck fs_parcels.mif ${sub_name}_fs_parcels.csv \
                        -out_assignment ${sub_name}_fs_assignments_parcels.csv
     fi
     
