@@ -208,13 +208,15 @@ do
     fi
  
  # Connectome with individual freesurfer atlas to get the regions
-    if ! [ -f "fs_parcels.csv" ]; then      
+    if ! [ -f "${sub_name}_fs_parcels.csv" ]; then      
         labelconvert $SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz \
                      $FREESURFER_HOME/FreeSurferColorLUT.txt \
                      $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
                      fs_parcels.mif -force
            
-        tck2connectome -symmetric -zero_diagonal -scale_invnodevol -tck_weights_in sift_1M.txt tracks_1M.tck fs_parcels.mif fs_parcels.csv -out_assignment fs_assignments_parcels.csv
+        tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
+                       -tck_weights_in sift_1M.txt tracks_1M.tck fs_parcels.mif ${sub_name}_fs_parcels.csv \
+                       -out_assignment ${sub_name}_fs_assignments_parcels.csv
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} connectome done.$NC"
