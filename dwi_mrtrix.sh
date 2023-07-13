@@ -178,7 +178,7 @@ do
         5ttgen fsl T1_coreg.mif 5tt_coreg.mif -nthreads $cores
     fi
     
-    if ! [ -f "gmwmSeed_coreg.mif.mif" ]; then
+    if ! [ -f "gmwmSeed_coreg.mif" ]; then
         5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif -nthreads $cores
     fi
 
