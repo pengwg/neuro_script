@@ -199,12 +199,12 @@ do
     # tckedit tracks_10M.tck -number 200k smallerTracks_200k.tck -force
 
     # mrview ${sub_name}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
-    if ! [ -f "sift_1M.tck" ]; then
-        tcksift -act 5tt_coreg.mif -term_number 1000k tracks_10M.tck wmfod_norm.mif sift_1M.tck -nthreads $cores
-    fi
+    # if ! [ -f "sift_1M.tck" ]; then
+    #    tcksift -act 5tt_coreg.mif -term_number 1000k tracks_10M.tck wmfod_norm.mif sift_1M.tck -nthreads $cores
+    # fi
 
     if ! [ -f "sift_1M.txt" ]; then
-        tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt sift_1M.tck wmfod_norm.mif sift_1M.txt -nthreads $cores
+        tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt tracks_10M.tck wmfod_norm.mif sift_1M.txt -nthreads $cores
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
