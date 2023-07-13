@@ -154,7 +154,7 @@ do
     
 # Find and convert anatomical T1 to mif
     if [ -d "../../anat" ]; then
-        sub_T1_nii=$(find ../../anat -name "*T1*.nii*" | head -n 1)
+        sub_T1_nii=$(find ../../anat \( -name "*T1w.nii" -o -name "*T1w.nii.gz" \) | head -n 1)
     fi
     
     if [ -z "$sub_T1_nii" ]; then
