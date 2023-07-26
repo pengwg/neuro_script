@@ -52,7 +52,11 @@ exec 3< <(tail -n +2 "../../anat/${subject}_seeds.csv")
 exec 4< <(tail -n +2 "${subject}_seeds_to_dwi.csv")
 
 while IFS=',' read -r x0 y0 z0 r0 label comment <&3 && IFS=',' read -r x y z r label2 comment2 <&4; do
-    tckgen -act 5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r -select 10k wmfod_norm.mif "tracks_10k_${x0}_${y0}_${z0}.tck" -nthreads $cores -force
+    x=$(echo "$x * -1" | bc)
+    y=$(echo "$y * -1" | bc)
+    x0=$(echo "$x0 * -1" | bc)
+    y0=$(echo "$y0 * -1" | bc)
+    tckgen -act 5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r -select 1k wmfod_norm.mif "tracks_1k_${x0}_${y0}_${z0}.tck" -nthreads $cores -force
 done
 
 # Close the file descriptors
