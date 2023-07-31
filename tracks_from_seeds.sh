@@ -4,8 +4,8 @@ cores=10
 
 # Absolute or relative path of the data folder to where the script located
 data_path=FUS/
-subject=sub-219-FUS
-session=ses-00
+subject=sub-214-FUS
+session=ses-07
 
 # Choose one of the following reference type which corresponds to different sub-name_seeds_{ref_type}.csv files and reference nifti volumes.
 # treatment: LPS coordinates on the treatment day.
@@ -30,9 +30,8 @@ fi
 printf "\n${GREEN}Entering $subject/$session/dwi/mrtrix...$NC\n"
 
 
-if [ -d "../../anat" ]; then
-    REF_nii=$(find ../../anat \( -name "${subject}_${session}_$ref_type.nii" -o -name "${subject}_${session}_$ref_type.nii.gz" \) | head -n 1)
-    echo "$subject_$session_$ref_type.nii"
+if [ -d "../ses-00/anat" ]; then
+    REF_nii=$(find ../ses-00/anat \( -name "${subject}_${session}_$ref_type.nii" -o -name "${subject}_${session}_$ref_type.nii.gz" \) | head -n 1)
 fi
     
 if [ -z "$REF_nii" ]; then
@@ -50,14 +49,14 @@ if ! [ -f "REFtodwi_0GenericAffine.mat" ]; then
     antsApplyTransforms -d 3 -i "$REF_nii"  -o REF_Volume_coreg.nii.gz -r "$REF_nii" -t REFtodwi_0GenericAffine.mat
 fi
 
-if ! [ -f "../../anat/${subject}_seeds_$ref_type.csv" ]; then
+if ! [ -f "../ses-00/anat/${subject}_seeds_$ref_type.csv" ]; then
     echo -e "${YELLOW}${subject}_seeds_$ref_type.csv not found.$NC"
     exit 1
 fi
 
-antsApplyTransformsToPoints -d 3 -i "../../anat/${subject}_seeds_$ref_type.csv" -o "${subject}_seeds_to_dwi.csv" -t [REFtodwi_0GenericAffine.mat, 1]
+antsApplyTransformsToPoints -d 3 -i "../ses-00/anat/${subject}_seeds_$ref_type.csv" -o "${subject}_seeds_to_dwi.csv" -t [REFtodwi_0GenericAffine.mat, 1]
 
-exec 3< <(tail -n +2 "../../anat/${subject}_seeds_$ref_type.csv")
+exec 3< <(tail -n +2 "../ses-00/anat/${subject}_seeds_$ref_type.csv")
 exec 4< <(tail -n +2 "${subject}_seeds_to_dwi.csv")
 
 while IFS=',' read -r x0 y0 z0 r0 label comment <&3 && IFS=',' read -r x y z r label2 comment2 <&4; do
