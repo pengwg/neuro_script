@@ -45,7 +45,7 @@ if ! [ -f "mean_b0_preprocessed.nii.gz" ]; then
     exit 1
 fi
 
-if ! [ -f "ACPCtodwi_0GenericAffine.mat" ]; then
+if ! [ -f "REFtodwi_0GenericAffine.mat" ]; then
     antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m "$REF_nii" -o REFtodwi_
     antsApplyTransforms -d 3 -i "$REF_nii"  -o REF_Volume_coreg.nii.gz -r "$REF_nii" -t REFtodwi_0GenericAffine.mat
 fi
