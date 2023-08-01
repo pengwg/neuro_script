@@ -39,14 +39,14 @@ if [ -z "$REF_nii" ]; then
     exit 1
 fi
 
-if ! [ -f "mean_b0_preprocessed.nii.gz" ]; then
-    echo -e "${YELLOW}mean_b0_preprocessed.nii.gz not found.$NC"
+if ! [ -f "T1_coreg.nii.gz" ]; then
+    echo -e "${YELLOW}T1_coreg.nii.gz not found.$NC"
     exit 1
 fi
 
 if ! [ -f "REFtodwi_0GenericAffine.mat" ]; then
-    antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m "$REF_nii" -o REFtodwi_
-    antsApplyTransforms -d 3 -i "$REF_nii"  -o REF_Volume_coreg.nii.gz -r "$REF_nii" -t REFtodwi_0GenericAffine.mat
+    antsRegistrationSyNQuick.sh -d 3 -t r -f T1_coreg.nii.gz -m "$REF_nii" -o REFtodwi_
+    antsApplyTransforms -d 3 -i "$REF_nii"  -o REF_Volume_coreg.nii.gz -r T1_coreg.nii.gz -t REFtodwi_0GenericAffine.mat
 fi
 
 if ! [ -f "../../../ses-00/anat/${subject}_seeds_$ref_type.csv" ]; then
