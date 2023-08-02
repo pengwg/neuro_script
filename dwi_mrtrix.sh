@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cores=10
+cores=18
 
 # Absolute or relative path of the data folder to where the script located
 data_path=FUS/

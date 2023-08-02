@@ -44,9 +44,9 @@ if ! [ -f "T1_coreg.nii.gz" ]; then
     exit 1
 fi
 
-if ! [ -f "REFtodwi_0GenericAffine.mat" ]; then
-    antsRegistrationSyNQuick.sh -d 3 -t r -f T1_coreg.nii.gz -m "$REF_nii" -o REFtodwi_
-    antsApplyTransforms -d 3 -i "$REF_nii"  -o REF_Volume_coreg.nii.gz -r T1_coreg.nii.gz -t REFtodwi_0GenericAffine.mat
+if ! [ -f "${ref_type}2dwi_0GenericAffine.mat" ]; then
+    antsRegistrationSyNQuick.sh -d 3 -t r -f T1_coreg.nii.gz -m "$REF_nii" -o ${ref_type}2dwi_
+    antsApplyTransforms -d 3 -i "$REF_nii"  -o ${ref_type}_volume_coreg.nii.gz -r T1_coreg.nii.gz -t ${ref_type}2dwi_0GenericAffine.mat
 fi
 
 if ! [ -f "../../../ses-00/anat/${subject}_seeds_$ref_type.csv" ]; then
@@ -54,7 +54,7 @@ if ! [ -f "../../../ses-00/anat/${subject}_seeds_$ref_type.csv" ]; then
     exit 1
 fi
 
-antsApplyTransformsToPoints -d 3 -i "../../../ses-00/anat/${subject}_seeds_$ref_type.csv" -o "${subject}_seeds_to_dwi.csv" -t [REFtodwi_0GenericAffine.mat, 1]
+antsApplyTransformsToPoints -d 3 -i "../../../ses-00/anat/${subject}_seeds_$ref_type.csv" -o "${subject}_seeds_to_dwi.csv" -t [${ref_type}2dwi_0GenericAffine.mat, 1]
 
 exec 3< <(tail -n +2 "../../../ses-00/anat/${subject}_seeds_$ref_type.csv")
 exec 4< <(tail -n +2 "${subject}_seeds_to_dwi.csv")
