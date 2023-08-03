@@ -4,7 +4,7 @@ cores=10
 
 # Absolute or relative path of the data folder to where the script located
 data_path=FUS/
-subject=sub-214-FUS
+subject=sub-218-FUS
 session=ses-00
 
 # Choose one of the following reference type which corresponds to different sub-name_seeds_{ref_type}.csv files and reference nifti volumes.

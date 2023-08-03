@@ -28,7 +28,7 @@ do
     fi
 
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
-    sub_dwi_nii=$(ls *HIGH_RES_??.nii* | head -n 1)
+    sub_dwi_nii=$(ls *HIGH_RES_*.nii* | head -n 1)
     if [ -z "$sub_dwi_nii" ]; then
         echo -e "${YELLOW}DWI files not found in ${sessions_dir[$n]}.$NC"
         cd $basedir
