@@ -56,7 +56,7 @@ fi
 
 antsApplyTransformsToPoints -d 3 -i "../../../ses-00/anat/${subject}_seeds_$ref_type.csv" -o "${subject}_seeds_to_dwi.csv" -t [${ref_type}2dwi_0GenericAffine.mat, 1]
 
-antsApplyTransforms -d 3 -i "../../../ses-00/anat/${subject}_${session}_mask.nii.gz" -o mask_to_dwi.nii.gz -r T1_coreg.nii.gz -t ${ref_type}2dwi_0GenericAffine.mat
+antsApplyTransforms -d 3 -i "../../../ses-00/anat/${subject}_ses-00_mask.nii.gz" -o mask_to_dwi.nii.gz -r T1_coreg.nii.gz -t ${ref_type}2dwi_0GenericAffine.mat
 mrconvert mask_to_dwi.nii.gz mask_to_dwi.mif -force
 
 tckgen -act 5tt_coreg.mif -backtrack -seed_image mask_to_dwi.mif -select 10k wmfod_norm.mif tracks_10k_from_mask.tck -nthreads $cores -force
