@@ -29,6 +29,7 @@ fi
 
 printf "\n${GREEN}Entering $subject/$session/dwi/mrtrix...$NC\n"
 
+chmod a+x *
 
 if [ -d "../../../ses-00/anat" ]; then
     REF_nii=$(find ../../../ses-00/anat \( -name "${subject}_ses-00_$ref_type.nii" -o -name "${subject}_ses-00_$ref_type.nii.gz" \) | head -n 1)
@@ -75,3 +76,5 @@ done
 # Close the file descriptors
 exec 3<&-
 exec 4<&-
+
+chmod a+x *
