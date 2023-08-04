@@ -31,7 +31,7 @@ printf "\n${GREEN}Entering $subject/$session/dwi/mrtrix...$NC\n"
 
 
 if [ -d "../../../ses-00/anat" ]; then
-    REF_nii=$(find ../../../ses-00/anat \( -name "${subject}_${session}_$ref_type.nii" -o -name "${subject}_${session}_$ref_type.nii.gz" \) | head -n 1)
+    REF_nii=$(find ../../../ses-00/anat \( -name "${subject}_ses-00_$ref_type.nii" -o -name "${subject}_ses-00_$ref_type.nii.gz" \) | head -n 1)
 fi
     
 if [ -z "$REF_nii" ]; then
