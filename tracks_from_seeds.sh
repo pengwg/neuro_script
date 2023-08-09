@@ -8,8 +8,10 @@ subject=sub-219-FUS
 session=ses-00
 
 # Choose one of the following reference type which corresponds to different sub-name_seeds_{ref_type}.csv files and reference nifti volumes.
+# treatment: Subspot LPS coordinate in treatment volume
 # AC or PC: LPS coordinates in the AC-PC-Midline coordinate system where AC or PC is (0,0,0)
 
+# ref_type='treatment'
 ref_type='AC'
 # ref_type='PC'
 
