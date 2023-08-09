@@ -63,6 +63,11 @@ exec 3< <(tail -n +2 "../../../../ses-00/anat/${subject}_seeds_$ref_type.csv")
 exec 4< <(tail -n +2 "${subject}_seeds_to_dwi.csv")
 
 while IFS=',' read -r x0 y0 z0 r0 label comment <&3 && IFS=',' read -r x y z r label2 comment2 <&4; do
+    # If there are blank lines in _seeds_$ref_type.csv they will be converted to "nan" in _seeds_to_dwi.csv. Skip these lines
+    if [ "$x" = "nan" ]; then
+        continue
+    fi
+
     x=$(echo "$x * -1" | bc)
     y=$(echo "$y * -1" | bc)
     x0=$(echo "$x0 * -1" | bc)
