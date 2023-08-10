@@ -59,7 +59,7 @@ cd tracks_from_seeds
 # Register the ref volume to T1_coreg.nii.gz
 # ${ref_type}2dwi_0GenericAffine.mat and ${ref_type}2dwi_Warped.nii.gz will be produced
 if ! [ -f "${ref_type}2dwi_0GenericAffine.mat" ]; then
-    antsRegistrationSyNQuick.sh -d 3 -t r -f ../T1_coreg.nii.gz -m "../$REF_nii" -o ${ref_type}2dwi_
+    antsRegistrationSyNQuick.sh -d 3 -t r -f ../T1_coreg.nii.gz -m "../$REF_nii" -o ${ref_type}2dwi_ -n $cores
 fi 
 
 # Apply the registration transformation to the seed points in the csv file.
