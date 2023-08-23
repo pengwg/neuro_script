@@ -21,6 +21,7 @@ fi
 
 printf "\n${GREEN}Entering $subject/$session/dwi/mrtrix...$NC\n"
 
+chmod a+x *
 
 if [ -d "../../../ses-00/anat" ]; then
     REF_nii=$(find ../../../ses-00/anat \( -name "${subject}_ses-00_treatment.nii" -o -name "${subject}_ses-00_treatment.nii.gz" \) | head -n 1)
@@ -55,3 +56,4 @@ mrconvert mask_to_dwi.nii.gz mask_to_dwi.mif -force
 
 tckgen -act ../5tt_coreg.mif -backtrack -seed_image mask_to_dwi.mif -select 100k ../wmfod_norm.mif tracks_100k_from_mask.tck -nthreads $cores -force
 
+chmod a+x *
