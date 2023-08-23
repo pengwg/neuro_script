@@ -4,7 +4,7 @@ data_path = 'FUS/';
 subject = 'sub-214-FUS';
 
 % Each seed will be represented as a square cuboid with the size DxDxH mm in the mask volume.
-D = 3;
+D = 2.5;
 H = 7;
 
 seed_file = [data_path subject '/ses-00/anat/' subject '_seeds_treatment.csv'];
