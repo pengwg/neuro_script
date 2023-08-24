@@ -21,23 +21,25 @@ fi
 
 printf "\n${GREEN}Entering $subject/$session/dwi/mrtrix...$NC\n"
 
-
+# Alway use treatment volume from ses-00 folder 
 if [ -d "../../../ses-00/anat" ]; then
     REF_nii=$(find ../../../ses-00/anat \( -name "${subject}_ses-00_treatment.nii" -o -name "${subject}_ses-00_treatment.nii.gz" \) | head -n 1)
 fi
-    
+
 if [ -z "$REF_nii" ]; then
     echo -e "${YELLOW}${subject}_ses-00_treatment.nii(.gz) not found.$NC"
     exit 1
 fi
 
-if ! [ -f "T1_coreg.nii.gz" ]; then
-    echo -e "${YELLOW}T1_coreg.nii.gz not found.$NC"
+# Alwasy use mask volume from ses-00 folder
+if ! [ -f "../../../ses-00/anat/${subject}_ses-00_mask.nii.gz" ]; then
+    echo -e "${YELLOW}${subject}_ses-00_mask.nii.gz not found.$NC"
     exit 1
 fi
 
-if ! [ -f "../../../ses-00/anat/${subject}_ses-00_mask.nii.gz" ]; then
-    echo -e "${YELLOW}${subject}_ses-00_mask.nii.gz not found.$NC"
+# Coregistered anatomic volume from dwi process
+if ! [ -f "T1_coreg.nii.gz" ]; then
+    echo -e "${YELLOW}T1_coreg.nii.gz not found.$NC"
     exit 1
 fi
 
@@ -46,12 +48,15 @@ if ! [ -d "tracks_from_mask" ]; then
 fi
 cd tracks_from_mask
 
+# Generate transform matrix from treatment to dwi registration
 if ! [ -f "treatment2dwi_0GenericAffine.mat" ]; then
     antsRegistrationSyNQuick.sh -d 3 -t r -f ../T1_coreg.nii.gz -m "../$REF_nii" -o treatment2dwi_ -n $cores
 fi
 
+# Apply the registration transform to the mask volume
 antsApplyTransforms -d 3 -i "../../../../ses-00/anat/${subject}_ses-00_mask.nii.gz" -o mask_to_dwi.nii.gz -r ../T1_coreg.nii.gz -t treatment2dwi_0GenericAffine.mat
 mrconvert mask_to_dwi.nii.gz mask_to_dwi.mif -force
 
+# Generating tracks from the registered mask volume as seed
 tckgen -act ../5tt_coreg.mif -backtrack -seed_image mask_to_dwi.mif -select 100k ../wmfod_norm.mif tracks_100k_from_mask.tck -nthreads $cores -force
 
