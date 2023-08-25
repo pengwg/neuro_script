@@ -53,6 +53,9 @@ cd tracks_from_mask
 # Generate transform matrix from treatment to dwi registration
 if ! [ -f "treatment2dwi_0GenericAffine.mat" ]; then
     antsRegistrationSyNQuick.sh -d 3 -t r -f ../T1_coreg.nii.gz -m "../$REF_nii" -o treatment2dwi_ -n $cores
+    
+    # Check registration
+    mrview ../T1_coreg.nii.gz -overlay.load treatment2dwi_Warped.nii.gz -mode 2 &
 fi
 
 # Apply the registration transform to the mask volume
