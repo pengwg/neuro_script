@@ -7,6 +7,8 @@ data_path=FUS/
 subject=sub-216-FUS
 session=ses-00
 
+num_tracks=100k
+
 YELLOW='\033[0;33m'
 GREEN='\033[0;32m'
 NC='\033[0m'
@@ -58,5 +60,5 @@ antsApplyTransforms -d 3 -i "../../../../ses-00/anat/${subject}_ses-00_mask.nii.
 mrconvert mask_to_dwi.nii.gz mask_to_dwi.mif -force
 
 # Generating tracks from the registered mask volume as seed
-tckgen -act ../5tt_coreg.mif -backtrack -seed_image mask_to_dwi.mif -select 100k ../wmfod_norm.mif tracks_100k_from_mask.tck -nthreads $cores -force
+tckgen -act ../5tt_coreg.mif -backtrack -seed_image mask_to_dwi.mif -select ${num_tracks} ../wmfod_norm.mif tracks_${num_tracks}_from_mask.tck -nthreads $cores -force
 
