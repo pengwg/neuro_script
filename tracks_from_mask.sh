@@ -65,3 +65,14 @@ mrconvert mask_to_dwi.nii.gz mask_to_dwi.mif -force
 # Generating tracks from the registered mask volume as seed
 tckgen -act ../5tt_coreg.mif -backtrack -seed_image mask_to_dwi.mif -select ${num_tracks} ../wmfod_norm.mif tracks_${num_tracks}_from_mask.tck -nthreads $cores -force
 
+# Computing the histogram of tracks lenghth
+tckstats tracks_${num_tracks}_from_mask.tck -histogram tracks_length_${num_tracks}_hist.csv -dump tracks_length_${num_tracks}.csv -force
+
+# Computing fractional anisotropy
+dwi2tensor ../${subject}_${session}_den_unr_preproc_unbiased.mif tensor.mif -force -nthreads $cores
+tensor2metric tensor.mif -fa FA.mif -force -nthreads $cores
+
+# Computing the mean FA of tracks
+tcksample -stat_tck mean tracks_${num_tracks}_from_mask.tck FA.mif tracks_meanFA_${num_tracks}.csv -force -nthreads $cores
+ 
+# tck2connectome tracks_100k_from_mask.tck nodes.mif mean_FA_connectome.csv -scale_file mean_FA
