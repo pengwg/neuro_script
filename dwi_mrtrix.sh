@@ -6,7 +6,7 @@ cores=8
 data_path=FUS/
 
 # Freesurfer subject path
-# SUBJECTS_DIR=/vulcan/Work/fusOUD/FUS/FS/
+SUBJECTS_DIR=~/Work/fusOUD/FS/
 
 cd $(dirname %0)
 
@@ -216,16 +216,29 @@ do
         cd $basedir
         continue
     fi
- 
- # Connectome with individual freesurfer atlas to get the regions
-    if ! [ -f "${sub_name}_fs_parcels.csv" ]; then      
+    
+    # Generate registered freesurfer parcels
+    if ! [ -f "fs_parcels_coreg.mif" ]; then
         labelconvert $SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz \
                      $FREESURFER_HOME/FreeSurferColorLUT.txt \
                      $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
-                     fs_parcels.mif -force
-           
+                     fs_parcels.nii.gz -force
+                     
+        mri_convert $SUBJECTS_DIR/$fs_subject/mri/T1.mgz T1_FS.nii.gz
+        
+        antsRegistrationSyNQuick.sh -d 3 -t r -f T1_coreg.nii.gz -m T1_FS.nii.gz -o FS2dwi_ -n $cores
+        antsApplyTransforms -d 3 -i fs_parcels.nii.gz -o fs_parcels_coreg.nii.gz -r T1_coreg.nii.gz -t FS2dwi_0GenericAffine.mat
+        
+        mrconvert fs_parcels_coreg.nii.gz fs_parcels_coreg.mif -datatype uint16
+        
+        # Check registration
+        # mrview T1_coreg.nii.gz -overlay.load fs_parcels_coreg.nii.gz -mode 2 &
+    fi
+    
+    # Connectome with individual freesurfer atlas regions
+    if ! [ -f "${sub_name}_fs_parcels.csv" ]; then         
         tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
-                       -tck_weights_in sift_1M.txt tracks_10M.tck fs_parcels.mif ${sub_name}_fs_parcels.csv \
+                       -tck_weights_in sift_1M.txt tracks_1M.tck fs_parcels_coreg.mif ${sub_name}_fs_parcels.csv \
                        -out_assignment ${sub_name}_fs_assignments_parcels.csv
     fi
     
