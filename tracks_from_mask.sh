@@ -4,7 +4,7 @@ cores=10
 
 # Absolute or relative path of the data folder to where the script located
 data_path=FUS/
-subject=sub-216-FUS
+subject=sub-215-FUS
 session=ses-00
 
 num_tracks=100k
@@ -75,4 +75,5 @@ tensor2metric tensor.mif -fa FA.mif -force -nthreads $cores
 # Computing the mean FA of tracks
 tcksample -stat_tck mean tracks_${num_tracks}_from_mask.tck FA.mif tracks_meanFA_${num_tracks}.csv -force -nthreads $cores
  
-# tck2connectome tracks_100k_from_mask.tck nodes.mif mean_FA_connectome.csv -scale_file mean_FA
+# Computing mean FA connectome 
+tck2connectome tracks_100k_from_mask.tck ../fs_parcels_coreg.mif mean_FA_connectome.csv -scale_file tracks_meanFA_${num_tracks}.csv
