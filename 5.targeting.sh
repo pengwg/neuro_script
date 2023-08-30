@@ -87,7 +87,6 @@ exec 4< <(tail -n +2 "${subject}_seeds_to_dwi.csv")
 # x, y, z are transformed LPS coordinates in the dwi space
 # r0 and r are radius of the seed sphere
 while IFS=',' read -r x0 y0 z0 r0 label comment <&3 && IFS=',' read -r x y z r label comment <&4; do
-    echo "r=$r"
     # Skip the nan lines (corresponding to blank lines in target_seeds_ACPC.csv) in the csv files
     if [ "$x" = "nan" ]; then
         continue
