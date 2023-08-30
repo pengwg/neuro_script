@@ -8,7 +8,7 @@
 cores=10
 
 # Absolute or relative path of the data folder to where the script located
-data_path=FUS/
+data_path=/media/dgt00003/dgytl/FUS/
 subject=sub-220-FUS
 session=ses-00
 
@@ -38,7 +38,9 @@ fi
 
 printf "\n${GREEN}Entering $subject/$session/dwi/mrtrix/...$NC\n"
 
-# Always use the reference volume and seed files from ses-00
+chmod a+x *
+
+
 if [ -d "../../../ses-00/anat" ]; then
     REF_nii=$(find ../../../ses-00/anat \( -name "${subject}_ses-00_$ref_type.nii" -o -name "${subject}_ses-00_$ref_type.nii.gz" \) | head -n 1)
 fi
@@ -102,4 +104,6 @@ done
 # Close the file descriptors
 exec 3<&-
 exec 4<&-
+
+chmod a+x *
 
