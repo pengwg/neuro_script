@@ -3,7 +3,7 @@
 cores=10
 
 # Absolute or relative path of the data folder to where the script located
-data_path=FUS/
+data_path=data_path=/media/dgt00003/dgytl/FUS/
 subject=sub-215-FUS
 session=ses-00
 
