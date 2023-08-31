@@ -151,7 +151,11 @@ do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} DTI done.$NC"
-    
+
+
+# ----------------- Anatomically Constrained Tractography ---------------------
+
+
 # Find and convert anatomical T1 to mif
     if [ -d "../../anat" ]; then
         sub_T1_nii=$(find ../../anat \( -name "*T1w.nii" -o -name "*T1w.nii.gz" \) | head -n 1)
@@ -198,7 +202,11 @@ do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
-    
+
+
+# ----------------- Connectome from freesurfer parcels -----------------------
+
+
     fs_subject="FS_$sub_name"
     
     if ! [ -f "$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz" ]; then
@@ -226,13 +234,23 @@ do
     fi
     
     # Connectome with individual freesurfer atlas regions
-    if ! [ -f "${sub_name}_fs_parcels.csv" ]; then         
-        tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
-                       -tck_weights_in sift_1M.txt tracks_1M.tck fs_parcels_coreg.mif ${sub_name}_fs_parcels.csv \
-                       -out_assignment ${sub_name}_fs_assignments_parcels.csv
+    if ! [ -f "${sub_name}_meanFA_1M_connectome.csv" ]; then 
+        # Computing fractional anisotropy of full 10M track file
+        dwi2tensor ${sub_name}_den_unr_preproc_unbiased.mif tensor.mif -force -nthreads $cores
+        tensor2metric tensor.mif -fa FA.mif -force -nthreads $cores  
+
+        # Computing the mean FA of tracks 
+        tcksample  tracks_1M.tck FA.mif tracks_meanFA_1M.csv -nthreads $cores -stat_tck mean -force 
+   
+        tck2connectome -symmetric -zero_diagonal \
+                       -tck_weights_in sift_1M.txt tracks_1M.tck fs_parcels_coreg.mif \
+                       ${sub_name}_meanFA_1M_connectome.csv \
+                       -scale_file tracks_meanFA_10M.csv -stat_edge mean -force 
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} connectome done.$NC"
+    echo -e "${YELLOW} all done for  ${sessions_dir[$n]}.$NC"
+    
     cd $basedir
 done
 
