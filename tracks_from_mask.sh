@@ -90,7 +90,8 @@ tck2connectome -symmetric -zero_diagonal \
                -tck_weights_in sift_${num_tracks}_from_mask.txt tracks_${num_tracks}_from_mask.tck \
                ../fs_parcels_coreg.mif mask_meanFA_${num_tracks}_connectome.csv \
                -scale_file tracks_meanFA_${num_tracks}.csv -stat_edge mean -force 
-
+               
+# Nodes from fixed seed vector connectome
 tck2connectome -tck_weights_in sift_${num_tracks}_from_mask.txt tracks_${num_tracks}_from_mask.tck \
                ../fs_parcels_coreg.mif mask_meanFA_${num_tracks}_vector_connectome.csv -vector \
                -scale_file tracks_meanFA_${num_tracks}.csv -stat_edge mean -force
