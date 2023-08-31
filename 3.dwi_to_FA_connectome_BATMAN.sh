@@ -1,12 +1,44 @@
 #!/bin/bash
 
-cores=8
+
+#Created by Drs Wang and Thompson-Lake 
+#June 2023 RNI
+
+#Requires files are in BIDS naming format
+
+#functions with in the script: 
+#Combines the PA files into single file
+#Performs denoising and degibbs correction on the DWI data.
+#Performs preprocessing steps including b0 extraction, topup, eddy, and bias correction using ANTs.
+#Estimates the response function for spherical deconvolution.
+#Generates fiber orientation distributions (FODs).
+#Performs intensity normalization and saves the normalized FODs.
+#Runs DTIFIT to generate diffusion tensor images (DTI).
+#Finds and converts the anatomical T1 image to the MIF format.
+#Registers T1 image to DWI space and generates 5TT (tissue type) segmentation and seed masks.
+#Performs tractography using tckgen and sifts the tracks using tcksift.
+#Converts the FreeSurfer parcellation to format and computes the connectome using tck2connectome.
+
+cores=12
 
 # Absolute or relative path of the data folder to where the script located
-data_path=FUS/
+#data_path=FUS/
+
+# Define external drive mount point you need these nest lines in all your scripts!!
+external_drive="/media/dgt00003/dgytl"
+
+# Define folder path and list of sessions
+#TO EDIT DEPENDING ON FOLDER
+relative_folder_path="FUS"
+
+# Construct the complete folder path
+data_path="$external_drive/$relative_folder_path"
+
+# Absolute or relative path of the data folder to where the script located
+#data_path=FUS/
 
 # Freesurfer subject path
-SUBJECTS_DIR=~/Work/fusOUD/FS/
+SUBJECTS_DIR=/media/dgt00003/dgytl/FUS/FS
 
 cd $(dirname %0)
 
@@ -21,15 +53,16 @@ NC='\033[0m'
 
 for (( n=0; n<${#sessions_dir[@]}; n++ ))
 do
-    printf "\n${GREEN}Entering ${sessions_dir[$n]} ...$NC\n"
+    printf "\n${YELLOW}Entering ${sessions_dir[$n]} ...$NC\n"
     cd ${sessions_dir[$n]}
+    echo ${sessions_dir[$n]}
     if ! [ -d mrtrix ]; then
         mkdir mrtrix
     fi
     
     chmod a+x *
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
-    sub_dwi_nii=$(ls *HIGH_RES_*.nii* | head -n 1)
+    sub_dwi_nii=$(ls *HIGH_RES*.nii* | head -n 1)
     if [ -z "$sub_dwi_nii" ]; then
         echo -e "${YELLOW}DWI files not found in ${sessions_dir[$n]}.$NC"
         cd $basedir
@@ -59,7 +92,7 @@ do
     
 # Denoise and degibbs
     if ! [ -f "${sub_name}_den.mif" ]; then
-        dwidenoise $sub_name.mif ${sub_name}_den.mif -noise noise.mif -nthreads $cores
+        dwidenoise $sub_name.mif ${sub_name}_den.mif -noise noise.mif -nthreads $cores -force
         if ! [ $? -eq 0 ]; then
             rm ${sub_name}_den.mif noise.mif
             exit 1
@@ -70,7 +103,7 @@ do
     chmod a+x *
     
     if ! [ -f "${sub_name}_den_unr.mif" ]; then
-        mrdegibbs ${sub_name}_den.mif ${sub_name}_den_unr.mif -nthreads $cores
+        mrdegibbs ${sub_name}_den.mif ${sub_name}_den_unr.mif -nthreads $cores -force
         if ! [ $? -eq 0 ]; then
             rm ${sub_name}_den_unr.mif
             exit 1
@@ -95,7 +128,7 @@ do
 
 # Bias correction with ANTs
     if ! [ -f "${sub_name}_den_unr_preproc_unbiased.mif" ]; then
-        dwibiascorrect ants ${sub_name}_den_unr_preproc.mif ${sub_name}_den_unr_preproc_unbiased.mif -bias bias.mif -nthreads $cores
+        dwibiascorrect ants ${sub_name}_den_unr_preproc.mif ${sub_name}_den_unr_preproc_unbiased.mif -bias bias.mif -nthreads $cores -force
         if ! [ $? -eq 0 ]; then
             rm ${sub_name}_den_unr_preproc_unbiased.mif 
             exit 1
@@ -163,8 +196,11 @@ do
 
 # Find and convert anatomical T1 to mif
     if [ -d "../../anat" ]; then
-        sub_T1_nii=$(find ../../anat \( -name "*T1w.nii" -o -name "*T1w.nii.gz" \) | head -n 1)
+    #changed this to find T1w.nii.gz otherwise I have too many files in some folders who have been preprocessed for fMRI
+        sub_T1_nii=$(find ../../anat -name "*T1w.nii*" | head -n 1)
     fi
+    
+     echo -e "${YELLOW} ${sub_name}  ${sessions_dir[$n]}/../../anat..$NC"
     
     if [ -z "$sub_T1_nii" ]; then
         echo -e "${YELLOW}T1 images not found in ${sessions_dir[$n]}/../../anat..$NC"
@@ -188,7 +224,7 @@ do
     fi
     
     if ! [ -f "gmwmSeed_coreg.mif" ]; then
-        5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif -nthreads $cores
+        5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif -nthreads $cores -force
     fi
     
     chmod a+x *
@@ -203,12 +239,13 @@ do
     # tckedit tracks_10M.tck -number 200k smallerTracks_200k.tck -force
 
     # mrview ${sub_name}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
-    # if ! [ -f "sift_1M.tck" ]; then
-    #    tcksift -act 5tt_coreg.mif -term_number 1000k tracks_10M.tck wmfod_norm.mif sift_1M.tck -nthreads $cores
-    # fi
+    #NOT enough zeros? Changed from 1000k to 1000k to equal 10 million
+    if ! [ -f "sift_1M.tck" ]; then
+        tcksift -act 5tt_coreg.mif -term_number 10000k tracks_10M.tck wmfod_norm.mif sift_1M.tck -nthreads $cores -force
+    fi
 
-    if ! [ -f "sift_1M.txt" ]; then
-        tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt tracks_10M.tck wmfod_norm.mif sift_1M.txt -nthreads $cores
+    if ! [ -f "sift_10M.txt" ]; then
+        tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt tracks_10M.tck wmfod_norm.mif sift_10M.txt -nthreads $cores -force
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
@@ -225,7 +262,7 @@ do
         continue
     fi
     
-    # Generate registered freesurfer parcels
+# Connectome with individual freesurfer atlas to get the regions
     if ! [ -f "fs_parcels_coreg.mif" ]; then
         labelconvert $SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz \
                      $FREESURFER_HOME/FreeSurferColorLUT.txt \
@@ -244,25 +281,25 @@ do
     fi
     
     # Connectome with individual freesurfer atlas regions
-    if ! [ -f "${sub_name}_1M_connectome.csv" ]; then         
+    if ! [ -f "${sub_name}_10M_connectome.csv" ]; then         
         tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
-                       -tck_weights_in sift_1M.txt tracks_1M.tck fs_parcels_coreg.mif \
-                       ${sub_name}_1M_connectome.csv \
-                       -out_assignment ${sub_name}_1M_connectome_assignments.csv
+                       -tck_weights_in sift_10M.txt tracks_10M.tck fs_parcels_coreg.mif \
+                       ${sub_name}_10M_connectome.csv \
+                       -out_assignment ${sub_name}_10M_connectome_assignments.csv
     fi
     
     # Connectome with mean FA
-    if ! [ -f "${sub_name}_meanFA_1M_connectome.csv" ]; then 
+    if ! [ -f "${sub_name}_meanFA_10M_connectome.csv" ]; then 
         # Computing fractional anisotropy of full 10M track file
         dwi2tensor ${sub_name}_den_unr_preproc_unbiased.mif tensor.mif -force -nthreads $cores
         tensor2metric tensor.mif -fa FA.mif -force -nthreads $cores  
 
         # Computing the mean FA of tracks 
-        tcksample  tracks_1M.tck FA.mif tracks_meanFA_1M.csv -nthreads $cores -stat_tck mean -force 
+        tcksample  tracks_10M.tck FA.mif tracks_meanFA_10M.csv -stat_tck mean -force -nthreads $cores 
    
         tck2connectome -symmetric -zero_diagonal \
-                       -tck_weights_in sift_1M.txt tracks_1M.tck fs_parcels_coreg.mif \
-                       ${sub_name}_meanFA_1M_connectome.csv \
+                       -tck_weights_in sift_10M.txt tracks_10M.tck fs_parcels_coreg.mif \
+                       ${sub_name}_meanFA_10M_connectome.csv \
                        -scale_file tracks_meanFA_10M.csv -stat_edge mean -force 
     fi
     
@@ -270,7 +307,7 @@ do
     
     echo -e "${GREEN}${sessions_dir[$n]} connectome done.$NC"
     echo -e "${YELLOW} all done for  ${sessions_dir[$n]}.$NC"
-    
+
     cd $basedir
 done
 
