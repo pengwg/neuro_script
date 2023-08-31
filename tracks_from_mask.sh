@@ -17,7 +17,7 @@ cd $(dirname %0)
 if [ -d "$data_path/$subject/$session/dwi/mrtrix" ]; then
     cd $data_path/$subject/$session/dwi/mrtrix
 else
-    echo -e "${YELLOW}$subject/$session run mrtrix first.$NC"
+    echo -e "${YELLOW}$subject/$session run BATMAN script first.$NC"
     exit 1
 fi
 
@@ -57,7 +57,7 @@ if ! [ -f "treatment2dwi_0GenericAffine.mat" ]; then
     antsRegistrationSyNQuick.sh -d 3 -t r -f ../T1_coreg.nii.gz -m "../$REF_nii" -o treatment2dwi_ -n $cores
     
     # Check registration
-    mrview ../T1_coreg.nii.gz -overlay.load treatment2dwi_Warped.nii.gz -mode 2 &
+    mrview treatment2dwi_Warped.nii.gz -overlay.load ../fs_parcels_coreg.mif -overlay.opacity 0.5 -mode 2 &
 fi
 
 # Apply the registration transform to the mask volume
@@ -65,7 +65,15 @@ antsApplyTransforms -d 3 -i "../../../../ses-00/anat/${subject}_ses-00_mask.nii.
 mrconvert mask_to_dwi.nii.gz mask_to_dwi.mif -force
 
 # Generating tracks from the registered mask volume as seed
-tckgen -act ../5tt_coreg.mif -backtrack -seed_image mask_to_dwi.mif -select ${num_tracks} ../wmfod_norm.mif tracks_${num_tracks}_from_mask.tck -nthreads $cores -force
+if ! [ -f "tracks_${num_tracks}_from_mask.tck" ]; then
+    tckgen -act ../5tt_coreg.mif -backtrack \
+           -seed_image mask_to_dwi.mif -select ${num_tracks} ../wmfod_norm.mif \
+           tracks_${num_tracks}_from_mask.tck -nthreads $cores -force
+fi
+
+tcksift2 -act ../5tt_coreg.mif -out_mu sift_mu_${num_tracks}.txt -out_coeffs sift_coeffs_${num_tracks}.txt \
+         tracks_${num_tracks}_from_mask.tck ../wmfod_norm.mif \
+         sift_${num_tracks}_from_mask.txt -nthreads $cores -force
 
 # Computing the histogram of tracks lenghth
 tckstats tracks_${num_tracks}_from_mask.tck -histogram tracks_length_${num_tracks}_hist.csv -dump tracks_length_${num_tracks}.csv -force
@@ -78,6 +86,14 @@ tensor2metric tensor.mif -fa FA.mif -force -nthreads $cores
 tcksample -stat_tck mean tracks_${num_tracks}_from_mask.tck FA.mif tracks_meanFA_${num_tracks}.csv -force -nthreads $cores
 
 # Computing mean FA connectome 
-tck2connectome tracks_100k_from_mask.tck ../fs_parcels_coreg.mif mean_FA_connectome.csv -scale_file tracks_meanFA_${num_tracks}.csv
+tck2connectome -symmetric -zero_diagonal \
+               -tck_weights_in sift_${num_tracks}_from_mask.txt tracks_${num_tracks}_from_mask.tck \
+               ../fs_parcels_coreg.mif mask_meanFA_${num_tracks}_connectome.csv \
+               -scale_file tracks_meanFA_${num_tracks}.csv -stat_edge mean -force 
+
+tck2connectome -tck_weights_in sift_${num_tracks}_from_mask.txt tracks_${num_tracks}_from_mask.tck \
+               ../fs_parcels_coreg.mif mask_meanFA_${num_tracks}_vector_connectome.csv -vector \
+               -scale_file tracks_meanFA_${num_tracks}.csv -stat_edge mean -force
 
 chmod a+x *
+
