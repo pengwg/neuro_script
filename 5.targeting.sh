@@ -14,6 +14,8 @@ session=ses-00
 
 num_tracks=1k
 
+Z=-1
+
 # Choose one of the following reference type which corresponds to different sub-name_seeds_{ref_type}.csv files and reference nifti volumes.
 # AC or PC: LPS coordinates in the AC-PC-Midline coordinate system where AC or PC is (0,0,0)
 
@@ -48,8 +50,8 @@ if [ -z "$REF_nii" ]; then
     exit 1
 fi
 
-if ! [ -f "$data_path_abs/target_seeds_ACPC.csv" ]; then
-    echo -e "${YELLOW}$data_path_abs/target_seeds_ACPC.csv not found.$NC"
+if ! [ -f "$data_path_abs/target_seeds_ACPC_$Z.csv" ]; then
+    echo -e "${YELLOW}$data_path_abs/target_seeds_ACPC_$Z.csv not found.$NC"
     exit 1
 fi
 
@@ -59,11 +61,11 @@ if ! [ -f "T1_coreg.nii.gz" ]; then
     exit 1
 fi
 
-if ! [ -d "tracks_from_targeting" ]; then
-    mkdir tracks_from_targeting
+if ! [ -d "tracks_from_targeting_$Z" ]; then
+    mkdir tracks_from_targeting_$Z
 fi
 
-cd tracks_from_targeting
+cd tracks_from_targeting_$Z
 
 # Register the ref volume to T1_coreg.nii.gz
 # ${ref_type}2dwi_0GenericAffine.mat and ${ref_type}2dwi_Warped.nii.gz will be produced
@@ -76,9 +78,9 @@ fi
 
 # Apply the registration transformation to the seed points in the csv file.
 # Note that ANTs software assume the coordinates in LPS system.
-antsApplyTransformsToPoints -d 3 -i "$data_path_abs/target_seeds_ACPC.csv" -o "${subject}_seeds_to_dwi.csv" -t [${ref_type}2dwi_0GenericAffine.mat, 1]
+antsApplyTransformsToPoints -d 3 -i "$data_path_abs/target_seeds_ACPC_$Z.csv" -o "${subject}_seeds_to_dwi.csv" -t [${ref_type}2dwi_0GenericAffine.mat, 1]
 
-exec 3< <(tail -n +2 "$data_path_abs/target_seeds_ACPC.csv")
+exec 3< <(tail -n +2 "$data_path_abs/target_seeds_ACPC_$Z.csv")
 exec 4< <(tail -n +2 "${subject}_seeds_to_dwi.csv")
 
 # x0, y0, z0 are LPS coordinates in the reference volume
