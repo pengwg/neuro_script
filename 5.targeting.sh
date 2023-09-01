@@ -95,7 +95,11 @@ while IFS=',' read -r x0 y0 z0 r0 label comment <&3 && IFS=',' read -r x y z r l
     y=$(echo "$y * -1" | bc)
     x0=$(echo "$x0 * -1" | bc)
     y0=$(echo "$y0 * -1" | bc)
-    tckgen -act ../5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r -select $num_tracks ../wmfod_norm.mif "tracks_${num_tracks}_${ref_type}_${x0}_${y0}_${z0}_RAS_${x}_${y}_${z}.tck" -nthreads $cores -force
+    
+    xint=$(echo $x | awk '{print int($1+0.5)}')
+    yint=$(echo $y | awk '{print int($1+0.5)}')
+    zint=$(echo $z | awk '{print int($1+0.5)}')
+    tckgen -act ../5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r -select $num_tracks ../wmfod_norm.mif "tracks_${num_tracks}_${ref_type}_${x0}_${y0}_${z0}_RAS_${xint}_${yint}_${zint}.tck" -nthreads $cores -force
 done
 
 # Close the file descriptors
