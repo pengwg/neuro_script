@@ -214,7 +214,8 @@ do
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
         
         antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m "$sub_T1_nii" -o T1todwi_ -n $cores
-        antsApplyTransforms -d 3 -i "$sub_T1_nii"  -o T1_coreg.nii.gz -r "$sub_T1_nii" -t T1todwi_0GenericAffine.mat
+        matlab -batch "addpath('$basedir'); apply_rigid_transform('$sub_T1_nii', 'T1_coreg', 'T1todwi_0GenericAffine.mat')"
+        # antsApplyTransforms -d 3 -i "$sub_T1_nii"  -o T1_coreg.nii.gz -r "$sub_T1_nii" -t T1todwi_0GenericAffine.mat
     fi
     
     if ! [ -f "5tt_coreg.mif" ]; then
@@ -272,9 +273,11 @@ do
         mri_convert $SUBJECTS_DIR/$fs_subject/mri/T1.mgz T1_FS.nii.gz
         
         antsRegistrationSyNQuick.sh -d 3 -t r -f T1_coreg.nii.gz -m T1_FS.nii.gz -o FS2dwi_ -n $cores
-        antsApplyTransforms -d 3 -i fs_parcels.nii.gz -o fs_parcels_coreg.nii.gz -r T1_coreg.nii.gz -t FS2dwi_0GenericAffine.mat
         
-        mrconvert fs_parcels_coreg.nii.gz fs_parcels_coreg.mif -datatype uint16
+        matlab -batch "addpath('$basedir'); apply_rigid_transform('fs_parcels.nii.gz', 'fs_parcels_coreg', 'FS2dwi_0GenericAffine.mat')"
+        
+        # antsApplyTransforms -d 3 -i fs_parcels.nii.gz -o fs_parcels_coreg.nii.gz -r T1_coreg.nii.gz -t FS2dwi_0GenericAffine.mat
+        # mrconvert fs_parcels_coreg.nii.gz fs_parcels_coreg.mif -datatype uint32
         
         # Check registration
         # mrview T1_coreg.nii.gz -overlay.load fs_parcels_coreg.nii.gz -mode 2 &
@@ -283,7 +286,7 @@ do
     # Connectome with individual freesurfer atlas regions
     if ! [ -f "${sub_name}_10M_connectome.csv" ]; then         
         tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
-                       -tck_weights_in sift_10M.txt tracks_10M.tck fs_parcels_coreg.mif \
+                       -tck_weights_in sift_10M.txt tracks_10M.tck fs_parcels_coreg.nii.gz \
                        ${sub_name}_10M_connectome.csv \
                        -out_assignment ${sub_name}_10M_connectome_assignments.csv
     fi
@@ -298,7 +301,7 @@ do
         tcksample  tracks_10M.tck FA.mif tracks_meanFA_10M.csv -stat_tck mean -force -nthreads $cores 
    
         tck2connectome -symmetric -zero_diagonal \
-                       -tck_weights_in sift_10M.txt tracks_10M.tck fs_parcels_coreg.mif \
+                       -tck_weights_in sift_10M.txt tracks_10M.tck fs_parcels_coreg.nii.gz \
                        ${sub_name}_meanFA_10M_connectome.csv \
                        -scale_file tracks_meanFA_10M.csv -stat_edge mean -force 
     fi
