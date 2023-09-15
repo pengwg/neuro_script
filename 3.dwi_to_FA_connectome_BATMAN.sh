@@ -18,6 +18,7 @@ basedir=$(pwd)
 YELLOW='\033[0;33m'
 GREEN='\033[0;32m'
 NC='\033[0m'
+BOLD='\033[1m'
 
 for (( n=0; n<${#sessions_dir[@]}; n++ ))
 do
@@ -173,6 +174,9 @@ do
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
         
         antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m "$sub_T1_nii" -o T1todwi_ -n $cores
+        
+        # Use matlab method to apply image header transformation, avoiding interpolation of image data
+        # Requires apply_rigid_transform.m in the script folder
         matlab -batch "addpath('$basedir'); apply_rigid_transform('$sub_T1_nii', 'T1_coreg', 'T1todwi_0GenericAffine.mat')"
         # antsApplyTransforms -d 3 -i "$sub_T1_nii"  -o T1_coreg.nii.gz -r "$sub_T1_nii" -t T1todwi_0GenericAffine.mat
     fi
@@ -217,7 +221,7 @@ do
     fi
     
     # Generate registered freesurfer parcels
-    if ! [ -f "fs_parcels_coreg.mif" ]; then
+    if ! [ -f "fs_parcels_coreg.nii.gz" ]; then
         labelconvert $SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz \
                      $FREESURFER_HOME/FreeSurferColorLUT.txt \
                      $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
@@ -227,10 +231,9 @@ do
         
         antsRegistrationSyNQuick.sh -d 3 -t r -f T1_coreg.nii.gz -m T1_FS.nii.gz -o FS2dwi_ -n $cores
         
+        # Use matlab method to apply image header transformation, avoiding interpolation of image data
+        # Requires apply_rigid_transform.m in the script folder
         matlab -batch "addpath('$basedir'); apply_rigid_transform('fs_parcels.nii.gz', 'fs_parcels_coreg', 'FS2dwi_0GenericAffine.mat')"
-        
-        # antsApplyTransforms -d 3 -i fs_parcels.nii.gz -o fs_parcels_coreg.nii.gz -r T1_coreg.nii.gz -t FS2dwi_0GenericAffine.mat
-        # mrconvert fs_parcels_coreg.nii.gz fs_parcels_coreg.mif -datatype uint32
         
         # Check registration
         # mrview T1_coreg.nii.gz -overlay.load fs_parcels_coreg.nii.gz -mode 2 &
@@ -260,7 +263,7 @@ do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} connectome done.$NC"
-    echo -e "${YELLOW} all done for  ${sessions_dir[$n]}.$NC"
+    echo -e "${YELLOW}${BOLD}All done for  ${sessions_dir[$n]}.$NC"
     
     cd $basedir
 done
