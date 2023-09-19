@@ -6,7 +6,7 @@ cores=18
 data_path=FUS/
 
 # Freesurfer subject path
-SUBJECTS_DIR=~/Work/fusOUD/FS/
+SUBJECTS_DIR=~/Work/fusOUD/FUS/FS/
 
 cd $(dirname %0)
 
@@ -59,6 +59,8 @@ do
 # Denoise and degibbs
     if ! [ -f "${sub_name}_den.mif" ]; then
         dwidenoise $sub_name.mif ${sub_name}_den.mif -noise noise.mif -nthreads $cores
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm ${sub_name}_den.mif noise.mif
             exit 1
@@ -68,6 +70,8 @@ do
     
     if ! [ -f "${sub_name}_den_unr.mif" ]; then
         mrdegibbs ${sub_name}_den.mif ${sub_name}_den_unr.mif -nthreads $cores
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm ${sub_name}_den_unr.mif
             exit 1
@@ -84,6 +88,8 @@ do
 # Wrapper for FSL's topup and eddy
     if ! [ -f "${sub_name}_den_unr_preproc.mif" ]; then
         dwifslpreproc ${sub_name}_den_unr.mif ${sub_name}_den_unr_preproc.mif -pe_dir AP -rpe_pair -se_epi b0_pair.mif -topup_options " --nthr="$cores -eddy_options " --slm=linear --data_is_shelled"
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm ${sub_name}_den_unr_preproc.mif
             exit 1
@@ -102,9 +108,12 @@ do
 # Estimate response function(s) for spherical deconvolution
     if ! [ -f "wm.txt" ]; then
         dwi2response dhollander ${sub_name}_den_unr_preproc_unbiased.mif wm.txt gm.txt csf.txt -nthreads $cores
+        
+        # Continue script if dwi2response failed
         if ! [ $? -eq 0 ]; then
             rm wm.txt gm.txt csf.txt 
-            exit 1
+            cd $basedir
+            continue
         fi
     fi
     
@@ -119,6 +128,8 @@ do
     
     if ! [ -f "wmfod.mif" ]; then
         dwi2fod msmt_csd ${sub_name}_den_unr_preproc_unbiased.mif -mask mask.mif wm.txt wmfod.mif gm.txt gmfod.mif csf.txt csffod.mif -nthreads $cores
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm wmfod.mif gmfod.mif csffod.mif 
             exit 1
@@ -134,6 +145,8 @@ do
 # Intensity normalization 
     if ! [ -f "wmfod_norm.mif" ]; then
         mtnormalise wmfod.mif wmfod_norm.mif gmfod.mif gmfod_norm.mif csffod.mif csffod_norm.mif -mask mask.mif -nthreads $cores
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm wmfod_norm.mif gmfod_norm.mif csffod_norm.mif
             exit 1
@@ -185,6 +198,12 @@ do
         mrconvert "$sub_T1_nii" T1_raw.mif -force
         mrconvert T1_coreg.nii.gz T1_coreg.mif -force
         5ttgen fsl T1_coreg.mif 5tt_coreg.mif -nthreads $cores
+        
+        # Continue script if 5ttgen failed
+        if ! [ $? -eq 0 ]; then
+            cd $basedir
+            continue
+        fi
     fi
     
     if ! [ -f "gmwmSeed_coreg.mif" ]; then
@@ -194,6 +213,8 @@ do
 # For testing purpose, run 1M tracks only
     if ! [ -f "tracks_1M.tck" ]; then
         tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select 1000k wmfod_norm.mif tracks_1M.tck -nthreads $cores
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm tracks_1M.tck
             exit 1
@@ -247,7 +268,7 @@ do
                        -out_assignment ${sub_name}_1M_connectome_assignments.csv
     fi
     
-    # Connectome with mean FA
+    # Connectome scaled by mean FA
     if ! [ -f "${sub_name}_meanFA_1M_connectome.csv" ]; then 
         # Computing fractional anisotropy of full 10M track file
         dwi2tensor ${sub_name}_den_unr_preproc_unbiased.mif tensor.mif -force -nthreads $cores
@@ -263,7 +284,7 @@ do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} connectome done.$NC"
-    echo -e "${YELLOW}${BOLD}All done for  ${sessions_dir[$n]}.$NC"
+    echo -e "${YELLOW}${BOLD}All done for ${sessions_dir[$n]}.$NC"
     
     cd $basedir
 done
