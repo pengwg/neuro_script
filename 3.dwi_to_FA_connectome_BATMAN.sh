@@ -6,7 +6,7 @@ cores=18
 data_path=FUS/
 
 # Freesurfer subject path
-SUBJECTS_DIR=~/Work/fusOUD/FUS/FS/
+SUBJECTS_DIR=~/Work/fusOUD/FS/
 
 cd $(dirname %0)
 
