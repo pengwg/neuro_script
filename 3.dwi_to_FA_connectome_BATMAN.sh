@@ -50,6 +50,7 @@ basedir=$(pwd)
 YELLOW='\033[0;33m'
 GREEN='\033[0;32m'
 NC='\033[0m'
+BOLD='\033[1m'
 
 for (( n=0; n<${#sessions_dir[@]}; n++ ))
 do
@@ -93,6 +94,8 @@ do
 # Denoise and degibbs
     if ! [ -f "${sub_name}_den.mif" ]; then
         dwidenoise $sub_name.mif ${sub_name}_den.mif -noise noise.mif -nthreads $cores -force
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm ${sub_name}_den.mif noise.mif
             exit 1
@@ -104,6 +107,8 @@ do
     
     if ! [ -f "${sub_name}_den_unr.mif" ]; then
         mrdegibbs ${sub_name}_den.mif ${sub_name}_den_unr.mif -nthreads $cores -force
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm ${sub_name}_den_unr.mif
             exit 1
@@ -120,6 +125,8 @@ do
 # Wrapper for FSL's topup and eddy
     if ! [ -f "${sub_name}_den_unr_preproc.mif" ]; then
         dwifslpreproc ${sub_name}_den_unr.mif ${sub_name}_den_unr_preproc.mif -pe_dir AP -rpe_pair -se_epi b0_pair.mif -eddy_options " --slm=linear --data_is_shelled"
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm ${sub_name}_den_unr_preproc.mif
             exit 1
@@ -138,9 +145,12 @@ do
 # Estimate response function(s) for spherical deconvolution
     if ! [ -f "wm.txt" ]; then
         dwi2response dhollander ${sub_name}_den_unr_preproc_unbiased.mif wm.txt gm.txt csf.txt -nthreads $cores
+        
+        # Continue script if dwi2response failed
         if ! [ $? -eq 0 ]; then
             rm wm.txt gm.txt csf.txt 
-            exit 1
+            cd $basedir
+            continue
         fi
     fi
     
@@ -155,6 +165,8 @@ do
     
     if ! [ -f "wmfod.mif" ]; then
         dwi2fod msmt_csd ${sub_name}_den_unr_preproc_unbiased.mif -mask mask.mif wm.txt wmfod.mif gm.txt gmfod.mif csf.txt csffod.mif -nthreads $cores
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm wmfod.mif gmfod.mif csffod.mif 
             exit 1
@@ -170,6 +182,8 @@ do
 # Intensity normalization 
     if ! [ -f "wmfod_norm.mif" ]; then
         mtnormalise wmfod.mif wmfod_norm.mif gmfod.mif gmfod_norm.mif csffod.mif csffod_norm.mif -mask mask.mif -nthreads $cores
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm wmfod_norm.mif gmfod_norm.mif csffod_norm.mif
             exit 1
@@ -214,6 +228,9 @@ do
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
         
         antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m "$sub_T1_nii" -o T1todwi_ -n $cores
+        
+        # Use matlab method to apply image header transformation, avoiding interpolation of image data
+        # Requires apply_rigid_transform.m in the script folder
         matlab -batch "addpath('$basedir'); apply_rigid_transform('$sub_T1_nii', 'T1_coreg', 'T1todwi_0GenericAffine.mat')"
         # antsApplyTransforms -d 3 -i "$sub_T1_nii"  -o T1_coreg.nii.gz -r "$sub_T1_nii" -t T1todwi_0GenericAffine.mat
     fi
@@ -222,6 +239,12 @@ do
         mrconvert "$sub_T1_nii" T1_raw.mif -force
         mrconvert T1_coreg.nii.gz T1_coreg.mif -force
         5ttgen fsl T1_coreg.mif 5tt_coreg.mif -nthreads $cores
+        
+        # Continue script if 5ttgen failed
+        if ! [ $? -eq 0 ]; then
+            cd $basedir
+            continue
+        fi
     fi
     
     if ! [ -f "gmwmSeed_coreg.mif" ]; then
@@ -232,6 +255,8 @@ do
     
     if ! [ -f "tracks_10M.tck" ]; then
         tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select 10000k wmfod_norm.mif tracks_10M.tck -nthreads $cores
+        
+        # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
             rm tracks_10M.tck
             exit 1
@@ -263,8 +288,8 @@ do
         continue
     fi
     
-# Connectome with individual freesurfer atlas to get the regions
-    if ! [ -f "fs_parcels_coreg.mif" ]; then
+    # Generate registered freesurfer parcels
+    if ! [ -f "fs_parcels_coreg.nii.gz" ]; then
         labelconvert $SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz \
                      $FREESURFER_HOME/FreeSurferColorLUT.txt \
                      $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
@@ -274,10 +299,9 @@ do
         
         antsRegistrationSyNQuick.sh -d 3 -t r -f T1_coreg.nii.gz -m T1_FS.nii.gz -o FS2dwi_ -n $cores
         
+        # Use matlab method to apply image header transformation, avoiding interpolation of image data
+        # Requires apply_rigid_transform.m in the script folder
         matlab -batch "addpath('$basedir'); apply_rigid_transform('fs_parcels.nii.gz', 'fs_parcels_coreg', 'FS2dwi_0GenericAffine.mat')"
-        
-        # antsApplyTransforms -d 3 -i fs_parcels.nii.gz -o fs_parcels_coreg.nii.gz -r T1_coreg.nii.gz -t FS2dwi_0GenericAffine.mat
-        # mrconvert fs_parcels_coreg.nii.gz fs_parcels_coreg.mif -datatype uint32
         
         # Check registration
         # mrview T1_coreg.nii.gz -overlay.load fs_parcels_coreg.nii.gz -mode 2 &
@@ -291,7 +315,7 @@ do
                        -out_assignment ${sub_name}_10M_connectome_assignments.csv
     fi
     
-    # Connectome with mean FA
+    # Connectome scaled with mean FA
     if ! [ -f "${sub_name}_meanFA_10M_connectome.csv" ]; then 
         # Computing fractional anisotropy of full 10M track file
         dwi2tensor ${sub_name}_den_unr_preproc_unbiased.mif tensor.mif -force -nthreads $cores
@@ -309,7 +333,7 @@ do
     chmod a+x *
     
     echo -e "${GREEN}${sessions_dir[$n]} connectome done.$NC"
-    echo -e "${YELLOW} all done for  ${sessions_dir[$n]}.$NC"
+    echo -e "${YELLOW}${BOLD}All done for ${sessions_dir[$n]}.$NC"
 
     cd $basedir
 done
