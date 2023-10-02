@@ -1,9 +1,14 @@
 #!/bin/bash
 
-# This requires an AC.nii in the ses-00/anat folder for the selected participant. 
+# This requires ${subject}_ses-00_$ref_type.nii(.gz) in the ses-00/anat folder for the selected participant. 
 
-# It will create a directory called targeting_tracks and sample all the possible combinations of coordinates from csv file stored in main FUS folder in order to review for targeting meetings. 
-# Target tracks seeds are located in target_seeds_ACPC.csv in the main FUS folder. 
+# Target tracks seeds are located in target_seeds_${seeds_tag}.csv in the main FUS folder. 
+# An example of target_seeds_${seeds_tag}.csv file. Also note it should be in LPS (-R,-A,S) coordinate system.
+# x,    y,  z,	r
+# 8,   -2,	0,	2.5
+# 8.5, -2,	0,	2.5
+
+# It will create a directory called targeting_tracks_${seeds_tag} and sample all the possible combinations of coordinates from csv file stored in main FUS folder in order to review for targeting meetings. 
 
 cores=10
 
@@ -14,13 +19,13 @@ session=ses-00
 
 num_tracks=1k
 
-Z=-1
+# Using target_seeds_${seeds_tag}.csv
+seeds_tag="ACPC"
 
-# Choose one of the following reference type which corresponds to different sub-name_seeds_{ref_type}.csv files and reference nifti volumes.
+# Choose one of the following reference type which corresponds to different nifti volumes.
 # AC or PC: LPS coordinates in the AC-PC-Midline coordinate system where AC or PC is (0,0,0)
-
 ref_type='AC'
-# ref_type='PC'
+
 
 YELLOW='\033[0;33m'
 GREEN='\033[0;32m'
@@ -50,8 +55,8 @@ if [ -z "$REF_nii" ]; then
     exit 1
 fi
 
-if ! [ -f "$data_path_abs/target_seeds_ACPC_$Z.csv" ]; then
-    echo -e "${YELLOW}$data_path_abs/target_seeds_ACPC_$Z.csv not found.$NC"
+if ! [ -f "$data_path_abs/target_seeds_${seeds_tag}.csv" ]; then
+    echo -e "${YELLOW}$data_path_abs/target_seeds_${seeds_tag}.csv not found.$NC"
     exit 1
 fi
 
@@ -61,11 +66,11 @@ if ! [ -f "T1_coreg.nii.gz" ]; then
     exit 1
 fi
 
-if ! [ -d "tracks_from_targeting_$Z" ]; then
-    mkdir tracks_from_targeting_$Z
+if ! [ -d "targeting_tracks_${seeds_tag}" ]; then
+    mkdir targeting_tracks_${seeds_tag}
 fi
 
-cd tracks_from_targeting_$Z
+cd targeting_tracks_${seeds_tag}
 
 # Register the ref volume to T1_coreg.nii.gz
 # ${ref_type}2dwi_0GenericAffine.mat and ${ref_type}2dwi_Warped.nii.gz will be produced
@@ -78,9 +83,9 @@ fi
 
 # Apply the registration transformation to the seed points in the csv file.
 # Note that ANTs software assume the coordinates in LPS system.
-antsApplyTransformsToPoints -d 3 -i "$data_path_abs/target_seeds_ACPC_$Z.csv" -o "${subject}_seeds_to_dwi.csv" -t [${ref_type}2dwi_0GenericAffine.mat, 1]
+antsApplyTransformsToPoints -d 3 -i "$data_path_abs/target_seeds_${seeds_tag}.csv" -o "${subject}_seeds_to_dwi.csv" -t [${ref_type}2dwi_0GenericAffine.mat, 1]
 
-exec 3< <(tail -n +2 "$data_path_abs/target_seeds_ACPC_$Z.csv")
+exec 3< <(tail -n +2 "$data_path_abs/target_seeds_${seeds_tag}.csv")
 exec 4< <(tail -n +2 "${subject}_seeds_to_dwi.csv")
 
 # x0, y0, z0 are LPS coordinates in the reference volume
