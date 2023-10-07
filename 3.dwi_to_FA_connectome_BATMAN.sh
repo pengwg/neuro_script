@@ -155,13 +155,14 @@ do
     
     echo -e "${GREEN}${sessions_dir[$n]} FOD done.$NC"
 
-# Run DTIFIT
+# Run DTIFIT with weighted least squares
     if ! [ -f "${sub_name}_dti_V1.nii.gz" ]; then
         dtifit -k ${sub_name}_den_unr_preproc_unbiased.nii.gz \
                -o ${sub_name}_dti \
                -m ${sub_name}_den_unr_preproc_unbiased_mask.nii.gz \
                -r ../$sub_dwi.bvec \
-               -b ../$sub_dwi.bval
+               -b ../$sub_dwi.bval \
+               -w
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} DTI done.$NC"
