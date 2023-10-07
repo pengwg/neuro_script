@@ -170,35 +170,39 @@ do
 
 # ----------------- Anatomically Constrained Tractography ---------------------
 
-
-# Find and convert anatomical T1 to mif
-    if [ -d "../../anat" ]; then
-        sub_T1_nii=$(find ../../anat \( -name "*T1w.nii" -o -name "*T1w.nii.gz" \) | head -n 1)
-    fi
+        
+    fs_subject="FS_$sub_name"
     
-    if [ -z "$sub_T1_nii" ]; then
-        echo -e "${YELLOW}T1 images not found in ${sessions_dir[$n]}/../../anat..$NC"
+    if ! [ -f "$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz" ]; then
+        echo -e "${YELLOW}$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz not found.$NC"
         cd $basedir
         continue
     fi
-
-# Create 5tt registered T1 volume and gray matter/white matter boundary seed
-    if ! [ -f "T1_coreg.nii.gz" ]; then
+    
+# Register freesurfer segmentation to dwi mean_b0
+    if ! [ -f "aparc+aseg_coreg.nii.gz" ]; then
+        mri_convert $SUBJECTS_DIR/$fs_subject/mri/T1.mgz T1_FS.nii.gz
+        mri_convert $SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz aparc+aseg.nii.gz
+        
         dwiextract ${sub_name}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
         
-        antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m "$sub_T1_nii" -o T1todwi_ -n $cores
+        antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m T1_FS.nii.gz -o FS2dwi_ -n $cores
         
         # Use matlab method to apply image header transformation, avoiding interpolation of image data
         # Requires apply_rigid_transform.m in the script folder
-        matlab -batch "addpath('$basedir'); apply_rigid_transform('$sub_T1_nii', 'T1_coreg', 'T1todwi_0GenericAffine.mat')"
-        # antsApplyTransforms -d 3 -i "$sub_T1_nii"  -o T1_coreg.nii.gz -r "$sub_T1_nii" -t T1todwi_0GenericAffine.mat
+        matlab -batch "addpath('$basedir'); apply_rigid_transform('aparc+aseg.nii.gz', 'aparc+aseg_coreg', 'FS2dwi_0GenericAffine.mat')"
+        # Also apply the transform to anatomic volume for checking purpose
+        matlab -batch "addpath('$basedir'); apply_rigid_transform('T1_FS.nii.gz', 'T1_FS_coreg', 'FS2dwi_0GenericAffine.mat')"
+        
+        # Check registration
+        # mrview aparc+aseg_coreg.nii.gz -overlay.load mean_b0_preprocessed.nii.gz -mode 2 &
     fi
-    
+
+# Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
     if ! [ -f "5tt_coreg.mif" ]; then
-        mrconvert "$sub_T1_nii" T1_raw.mif -force
-        mrconvert T1_coreg.nii.gz T1_coreg.mif -force
-        5ttgen fsl T1_coreg.mif 5tt_coreg.mif -nthreads $cores
+        # '5ttgen freesurfer' will invoke labelconvert by itself  
+        5ttgen freesurfer aparc+aseg_coreg.nii.gz 5tt_coreg.mif -nthreads $cores
         
         # Continue script if 5ttgen failed
         if ! [ $? -eq 0 ]; then
@@ -232,37 +236,15 @@ do
 
 
 # ----------------- Connectome from freesurfer parcels -----------------------
-
-
-    fs_subject="FS_$sub_name"
-    
-    if ! [ -f "$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz" ]; then
-        echo -e "${YELLOW}$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz not found.$NC"
-        cd $basedir
-        continue
-    fi
-    
-    # Generate registered freesurfer parcels
-    if ! [ -f "fs_parcels_coreg.nii.gz" ]; then
-        labelconvert $SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz \
+ 
+                     
+    # Connectome with individual freesurfer atlas regions
+    if ! [ -f "${sub_name}_1M_connectome.csv" ]; then
+        labelconvert aparc+aseg_coreg.nii.gz \
                      $FREESURFER_HOME/FreeSurferColorLUT.txt \
                      $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
-                     fs_parcels.nii.gz -force
+                     fs_parcels_coreg.nii.gz -force
                      
-        mri_convert $SUBJECTS_DIR/$fs_subject/mri/T1.mgz T1_FS.nii.gz
-        
-        antsRegistrationSyNQuick.sh -d 3 -t r -f T1_coreg.nii.gz -m T1_FS.nii.gz -o FS2dwi_ -n $cores
-        
-        # Use matlab method to apply image header transformation, avoiding interpolation of image data
-        # Requires apply_rigid_transform.m in the script folder
-        matlab -batch "addpath('$basedir'); apply_rigid_transform('fs_parcels.nii.gz', 'fs_parcels_coreg', 'FS2dwi_0GenericAffine.mat')"
-        
-        # Check registration
-        # mrview T1_coreg.nii.gz -overlay.load fs_parcels_coreg.nii.gz -mode 2 &
-    fi
-    
-    # Connectome with individual freesurfer atlas regions
-    if ! [ -f "${sub_name}_1M_connectome.csv" ]; then         
         tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
                        -tck_weights_in sift_1M.txt tracks_1M.tck fs_parcels_coreg.nii.gz \
                        ${sub_name}_1M_connectome.csv \
