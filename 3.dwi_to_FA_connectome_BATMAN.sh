@@ -83,6 +83,9 @@ do
         dwiextract ${sub_name}_den_unr.mif - -bzero | mrmath - mean mean_b0_AP.mif -axis 3 -force
         mrcat *2mm_PA*.mif -axis 3 - | mrmath - mean mean_b0_PA.mif -axis 3 -force
         mrcat mean_b0_AP.mif mean_b0_PA.mif -axis 3 b0_pair.mif
+        
+        # Check 3 PAs alignment
+        # mrview mean_b0_preprocessed.nii.gz -overlay.load T1_FS.nii.gz -overlay.load aparc+aseg_coreg.nii.gz -mode 2 &
     fi
 
 # Wrapper for FSL's topup and eddy
@@ -196,7 +199,7 @@ do
         matlab -batch "addpath('$basedir'); apply_rigid_transform('T1_FS.nii.gz', 'T1_FS_coreg', 'FS2dwi_0GenericAffine.mat')"
         
         # Check registration
-        # mrview aparc+aseg_coreg.nii.gz -overlay.load mean_b0_preprocessed.nii.gz -mode 2 &
+        # mrview mean_b0_preprocessed.nii.gz -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz -mode 2 &
     fi
 
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
