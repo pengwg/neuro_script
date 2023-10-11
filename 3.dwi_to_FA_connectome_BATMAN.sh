@@ -85,7 +85,8 @@ do
         mrcat mean_b0_AP.mif mean_b0_PA.mif -axis 3 b0_pair.mif
         
         # Check 3 PAs alignment
-        # mrview mean_b0_preprocessed.nii.gz -overlay.load T1_FS.nii.gz -overlay.load aparc+aseg_coreg.nii.gz -mode 2 &
+        mapfile -t PA_files < <(find . -type f -name \*2mm_PA\*)
+        mrview ${PA_files[0]} -overlay.load ${PA_files[1]} -overlay.load ${PA_files[2]} -mode 2 &
     fi
 
 # Wrapper for FSL's topup and eddy
