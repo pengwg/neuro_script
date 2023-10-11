@@ -119,7 +119,11 @@ do
     if ! [ -f b0_pair.mif ]; then
         dwiextract ${sub_name}_den_unr.mif - -bzero | mrmath - mean mean_b0_AP.mif -axis 3 -force
         mrcat *2mm_PA*.mif -axis 3 - | mrmath - mean mean_b0_PA.mif -axis 3 -force
-        mrcat mean_b0_AP.mif mean_b0_PA.mif -axis 3 b0_pair.mif
+        mrcat mean_b0_AP.mif mean_b0_PA.mif -axis 3 b0_pair.mif      
+        
+        # Check 3 PAs alignment
+        mapfile -t PA_files < <(find . -type f -name \*2mm_PA\*)
+        mrview ${PA_files[0]} -overlay.load ${PA_files[1]} -overlay.load ${PA_files[2]} -mode 2 &
     fi
 
 # Wrapper for FSL's topup and eddy
