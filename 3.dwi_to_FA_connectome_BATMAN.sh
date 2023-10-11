@@ -236,7 +236,7 @@ do
         matlab -batch "addpath('$basedir'); apply_rigid_transform('T1_FS.nii.gz', 'T1_FS_coreg', 'FS2dwi_0GenericAffine.mat')"
         
         # Check registration
-        # mrview aparc+aseg_coreg.nii.gz -overlay.load mean_b0_preprocessed.nii.gz -mode 2 &
+        # mrview mean_b0_preprocessed.nii.gz -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz -mode 2 &
     fi
 
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
