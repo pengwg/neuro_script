@@ -110,9 +110,14 @@ while IFS=',' read -r x0 y0 z0 r0 label comment <&3 && IFS=',' read -r x y z r l
     yint=$(echo $y | awk '{print int($1+0.5)}')
     zint=$(echo $z | awk '{print int($1+0.5)}')
     
+    # Pierre suggested command line
+    # tckgen -act {data_dir}/5tt_coreg_MNI.nii -backtrack -seed_dynamic {data_dir}/wmfod_norm_MNI.nii -nthreads 30 -cutoff 0.06 -maxlength 250 -step 0.5 -select 100M {data_dir}/wmfod_norm_MNI.nii {data_dir}/tracks_MNI_100M.tck -crop_at_gmwmi
+
     tckgen -act ../5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r -select $num_tracks ../wmfod_norm.mif \
            "tracks_${num_tracks}_${ref_type}_${x0}_${y0}_${z0}_RAS_${xint}_${yint}_${zint}.tck" \
-           -nthreads $cores -force
+           -nthreads $cores -force \
+           # Uncomment the following arguments to match Pierre's usage
+           # -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi
 done
 
 # Close the file descriptors
