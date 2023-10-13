@@ -63,8 +63,8 @@ if ! [ -f "$data_path_abs/target_seeds_${seeds_tag}.csv" ]; then
 fi
 
 # T1 volume in the dwi space
-if ! [ -f "T1_coreg.nii.gz" ]; then
-    echo -e "${YELLOW}T1_coreg.nii.gz not found.$NC"
+if ! [ -f "T1_FS_coreg.nii.gz" ]; then
+    echo -e "${YELLOW}T1_FS_coreg.nii.gz not found.$NC"
     exit 1
 fi
 
@@ -74,13 +74,13 @@ fi
 
 cd targeting_tracks_${seeds_tag}
 
-# Register the ref volume to T1_coreg.nii.gz
+# Register the ref volume to T1_FS_coreg.nii.gz
 # ${ref_type}2dwi_0GenericAffine.mat and ${ref_type}2dwi_Warped.nii.gz will be produced
 if ! [ -f "${ref_type}2dwi_0GenericAffine.mat" ]; then
-    antsRegistrationSyNQuick.sh -d 3 -t r -f ../T1_coreg.nii.gz -m "../$REF_nii" -o ${ref_type}2dwi_ -n $cores
+    antsRegistrationSyNQuick.sh -d 3 -t r -f ../T1_FS_coreg.nii.gz -m "../$REF_nii" -o ${ref_type}2dwi_ -n $cores
     
     # Check registration
-    mrview ../T1_coreg.nii.gz -overlay.load AC2dwi_Warped.nii.gz -mode 2 &
+    mrview ../T1_FS_coreg.nii.gz -overlay.load AC2dwi_Warped.nii.gz -mode 2 &
 fi 
 
 # Apply the registration transformation to the seed points in the csv file.
