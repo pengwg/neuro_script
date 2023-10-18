@@ -1,12 +1,20 @@
 #!/bin/bash
 
+
+#---------------------  User's variables to be modified ---------------------
+
 cores=18
 
 # Absolute or relative path of the data folder to where the script located
 data_path=FUS/
 
+# Set to 1 to have quality control popup for checking results
+QC=1
+
 # Freesurfer subject path
 SUBJECTS_DIR=~/Work/fusOUD/FS/
+
+#---------------------------------------------------------------------------
 
 cd $(dirname %0)
 
