@@ -19,7 +19,10 @@
 #Performs tractography using tckgen and sifts the tracks using tcksift.
 #Converts the FreeSurfer parcellation to format and computes the connectome using tck2connectome.
 
-cores=12
+
+#---------------------  User's variables to be modified ---------------------
+
+cores=18
 
 # Absolute or relative path of the data folder to where the script located
 #data_path=FUS/
@@ -37,8 +40,13 @@ data_path="$external_drive/$relative_folder_path"
 # Absolute or relative path of the data folder to where the script located
 #data_path=FUS/
 
+# Set to 0 to disable quality control popup
+QC=1
+
 # Freesurfer subject path
 SUBJECTS_DIR=/media/dgt00003/dgytl/FUS/FS
+
+#---------------------------------------------------------------------------
 
 cd $(dirname %0)
 
@@ -122,8 +130,10 @@ do
         mrcat mean_b0_AP.mif mean_b0_PA.mif -axis 3 b0_pair.mif      
         
         # Check 3 PAs alignment
-        mapfile -t PA_files < <(find . -type f -name \*2mm_PA\*)
-        mrview ${PA_files[0]} -overlay.load ${PA_files[1]} -overlay.load ${PA_files[2]} -mode 2 &
+        if ! [ $QC -eq 0 ]; then
+            mapfile -t PA_files < <(find . -type f -name \*2mm_PA\*)
+            mrview ${PA_files[0]} -overlay.load ${PA_files[1]} -overlay.load ${PA_files[2]} -mode 2 &
+        fi       
     fi
 
 # Wrapper for FSL's topup and eddy
@@ -144,6 +154,10 @@ do
             rm ${sub_name}_den_unr_preproc_unbiased.mif 
             exit 1
         fi
+        
+        if ! [ $QC -eq 0 ]; then
+            mrview ${sub_name}_den_unr_preproc_unbiased.mif -overlay.load bias.mif &
+        fi
     fi
    
 # Estimate response function(s) for spherical deconvolution
@@ -155,6 +169,10 @@ do
             rm wm.txt gm.txt csf.txt 
             cd $basedir
             continue
+        fi
+        
+        if ! [ $QC -eq 0 ]; then
+            shview wm.txt &
         fi
     fi
     
@@ -180,8 +198,12 @@ do
 # Create volume fraction for result inspection
     if ! [ -f "vf.mif" ]; then
         mrconvert -coord 3 0 wmfod.mif - | mrcat csffod.mif gmfod.mif - vf.mif    
-    fi
-    # mrview vf.mif -odf.load_sh wmfod.mif
+        if ! [ $QC -eq 0 ]; then
+            mrview ${sub_name}_den_unr_preproc_unbiased.mif -overlay.load vf.mif &
+            mrview vf.mif -odf.load_sh wmfod.mif &
+        fi
+    fi      
+    
  
 # Intensity normalization 
     if ! [ -f "wmfod_norm.mif" ]; then
@@ -240,7 +262,9 @@ do
         matlab -batch "addpath('$basedir'); apply_rigid_transform('T1_FS.nii.gz', 'T1_FS_coreg', 'FS2dwi_0GenericAffine.mat')"
         
         # Check registration
-        mrview mean_b0_preprocessed.nii.gz -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz -mode 2 &
+        if ! [ $QC -eq 0 ]; then
+            mrview mean_b0_preprocessed.mif -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz &
+        fi
     fi
 
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
@@ -252,6 +276,9 @@ do
         if ! [ $? -eq 0 ]; then
             cd $basedir
             continue
+        fi
+        if ! [ $QC -eq 0 ]; then
+            mrview T1_FS_coreg.nii.gz -overlay.load 5tt_coreg.mif &
         fi
     fi
     
@@ -273,13 +300,17 @@ do
     # tckedit tracks_10M.tck -number 200k smallerTracks_200k.tck -force
 
     # mrview ${sub_name}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
-    #NOT enough zeros? Changed from 1000k to 1000k to equal 10 million
     if ! [ -f "sift_1M.tck" ]; then
-        tcksift -act 5tt_coreg.mif -term_number 10000k tracks_10M.tck wmfod_norm.mif sift_1M.tck -nthreads $cores -force
+        tcksift -act 5tt_coreg.mif -term_number 1M tracks_10M.tck wmfod_norm.mif sift_1M.tck -nthreads $cores -force
     fi
 
     if ! [ -f "sift_10M.txt" ]; then
         tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt tracks_10M.tck wmfod_norm.mif sift_10M.txt -nthreads $cores -force
+        tckedit tracks_10M.tck -number 200k smallerTracts_200k.tck
+        
+        if ! [ $QC -eq 0 ]; then
+            mrview T1_FS_coreg.nii.gz –tractography.load smallerTracts_200k.tck &
+        fi
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
