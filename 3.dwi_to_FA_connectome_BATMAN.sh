@@ -19,6 +19,7 @@
 #Performs tractography using tckgen and sifts the tracks using tcksift.
 #Converts the FreeSurfer parcellation to format and computes the connectome using tck2connectome.
 
+#BATMAN4 edits: commented out SIFT1, Freesurfer folder location changed, added mrview popups for QC, mrconvert T1_FS_correg to a mif file for viewing
 
 #---------------------  User's variables to be modified ---------------------
 
@@ -32,7 +33,7 @@ external_drive="/media/dgt00003/dgytl"
 
 # Define folder path and list of sessions
 #TO EDIT DEPENDING ON FOLDER
-relative_folder_path="FUS"
+relative_folder_path="CPO"
 
 # Construct the complete folder path
 data_path="$external_drive/$relative_folder_path"
@@ -44,7 +45,7 @@ data_path="$external_drive/$relative_folder_path"
 QC=1
 
 # Freesurfer subject path
-SUBJECTS_DIR=/media/dgt00003/dgytl/FUS/FS
+SUBJECTS_DIR=/media/dgt00003/dgytl/FS
 
 #---------------------------------------------------------------------------
 
@@ -65,15 +66,15 @@ do
     printf "\n${YELLOW}Entering ${sessions_dir[$n]} ...$NC\n"
     cd ${sessions_dir[$n]}
     echo ${sessions_dir[$n]}
-    if ! [ -d mrtrix ]; then
-        mkdir mrtrix
+    if ! [ -d mrtrix3 ]; then
+        mkdir mrtrix3
     fi
     
     chmod a+x *
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
     sub_dwi_nii=$(ls *HIGH_RES*.nii* | head -n 1)
     if [ -z "$sub_dwi_nii" ]; then
-        echo -e "${YELLOW}DWI files not found in ${sessions_dir[$n]}.$NC"
+        echo -e "${YELLOW}DWI files not found in ${sessions_dir[$n]}.$NC" | tee -a "$data_path/script4BATMAN_log.txt"
         cd $basedir
         continue
     fi
@@ -84,19 +85,19 @@ do
     N=${#parts[@]}
     sub_name="${parts[N-3]}_${parts[N-2]}"
         
-    if ! [ -f "mrtrix/$sub_name.mif" ]; then
-        mrconvert $sub_dwi_nii mrtrix/$sub_name.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
+    if ! [ -f "mrtrix3/$sub_name.mif" ]; then
+        mrconvert $sub_dwi_nii mrtrix3/$sub_name.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
     fi
     
     sub_PA_niis=$(ls *2mm_PA*.nii*)
     for sub_PA_nii in $sub_PA_niis; do
         sub_PA=$(echo "$sub_PA_nii" | sed 's/\.nii.*$//')
-        if ! [ -f "mrtrix/$sub_PA.mif" ]; then
-            mrconvert $sub_PA_nii mrtrix/$sub_PA.mif
+        if ! [ -f "mrtrix3/$sub_PA.mif" ]; then
+            mrconvert $sub_PA_nii mrtrix3/$sub_PA.mif
         fi
     done
     
-    cd mrtrix
+    cd mrtrix3
     chmod a+x *
     
 # Denoise and degibbs
@@ -200,6 +201,7 @@ do
         mrconvert -coord 3 0 wmfod.mif - | mrcat csffod.mif gmfod.mif - vf.mif    
         if ! [ $QC -eq 0 ]; then
             mrview ${sub_name}_den_unr_preproc_unbiased.mif -overlay.load vf.mif &
+            # display the white matter FOD on a map which shows the estimated volume fraction of each tissue
             mrview vf.mif -odf.load_sh wmfod.mif &
         fi
     fi      
@@ -217,6 +219,9 @@ do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} FOD done.$NC"
+    
+    note="${sessions_dir[$n]} FOD done.$NC  $(date '+%Y-%m-%d %H:%M')"
+    echo -e "$note" >> $data_path/script4BATMAN_log.txt
 
     chmod a+x *
     
@@ -232,6 +237,9 @@ do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} DTI done.$NC"
+    note="${sessions_dir[$n]} DTI done.$NC $(date '+%Y-%m-%d %H:%M')"
+    echo -e "$note" >> "$data_path/script4BATMAN_log.txt"
+   
 
 
 # ----------------- Anatomically Constrained Tractography ---------------------
@@ -240,7 +248,7 @@ do
     fs_subject="FS_$sub_name"
     
     if ! [ -f "$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz" ]; then
-        echo -e "${YELLOW}$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz not found.$NC"
+        echo -e "${YELLOW}$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz not found.$NC ******" >> $data_path/script4BATMAN_log.txt
         cd $basedir
         continue
     fi
@@ -260,10 +268,11 @@ do
         matlab -batch "addpath('$basedir'); apply_rigid_transform('aparc+aseg.nii.gz', 'aparc+aseg_coreg', 'FS2dwi_0GenericAffine.mat')"
         # Also apply the transform to anatomic volume for checking purpose
         matlab -batch "addpath('$basedir'); apply_rigid_transform('T1_FS.nii.gz', 'T1_FS_coreg', 'FS2dwi_0GenericAffine.mat')"
-        
+        mrconvert T1_FS_coreg.nii.gz T1_FS_coreg.mif -force
+
         # Check registration
         if ! [ $QC -eq 0 ]; then
-            mrview mean_b0_preprocessed.mif -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz &
+            mrview mean_b0_preprocessed.mif -overlay.load T1_FS_coreg.mif -overlay.load aparc+aseg_coreg.nii.gz &
         fi
     fi
 
@@ -278,7 +287,7 @@ do
             continue
         fi
         if ! [ $QC -eq 0 ]; then
-            mrview T1_FS_coreg.nii.gz -overlay.load 5tt_coreg.mif &
+            mrview T1_FS_coreg.mif -overlay.load 5tt_coreg.mif &
         fi
     fi
     
@@ -314,6 +323,8 @@ do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
+    note="${sessions_dir[$n]} ACT done.$NC  $(date '+%Y-%m-%d %H:%M')"
+    echo -e "$note" >> $data_path/script4BATMAN_log.txt
 
 
 # ----------------- Connectome from freesurfer parcels -----------------------
@@ -349,8 +360,13 @@ do
     
     chmod a+x *
     
-    echo -e "${GREEN}${sessions_dir[$n]} connectome done.$NC"
-    echo -e "${YELLOW}${BOLD}All done for ${sessions_dir[$n]}.$NC"
+    note= "${sessions_dir[$n]} connectome done.$NC  $(date '+%Y-%m-%d %H:%M')" 
+    echo -e "$note" >> $data_path/script4BATMAN_log.txt
+   
+    echo -e "${YELLOW}${BOLD}All done for ${sessions_dir[$n]}.$NC  $(date '+%Y-%m-%d %H:%M')" 
+
+    note="All done for ${sessions_dir[$n]}.$NC  $(date '+%Y-%m-%d %H:%M')"
+    echo -e "$note" >> $data_path/script4BATMAN_log.txt
 
     cd $basedir
 done
