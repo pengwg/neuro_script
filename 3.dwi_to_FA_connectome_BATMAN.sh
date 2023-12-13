@@ -91,13 +91,13 @@ do
         dwiextract ${sub_name}_den_unr.mif - -bzero | mrmath - mean mean_b0_AP.mif -axis 3 -force
         mrcat *2mm_PA*.mif -axis 3 - | mrmath - mean mean_b0_PA.mif -axis 3 -force
         mrcat mean_b0_AP.mif mean_b0_PA.mif -axis 3 b0_pair.mif
-        
-        # Check 3 PAs alignment
-        if ! [ $QC -eq 0 ]; then
-            mapfile -t PA_files < <(find . -type f -name \*2mm_PA\*)
-            mrview ${PA_files[0]} -overlay.load ${PA_files[1]} -overlay.load ${PA_files[2]} -mode 2 &
-        fi       
-    fi
+    fi    
+    
+    # Check 3 PAs alignment
+    if ! [ $QC -eq 0 ]; then
+        mapfile -t PA_files < <(find . -type f -name \*2mm_PA\*)
+        mrview ${PA_files[0]} -overlay.load ${PA_files[1]} -overlay.load ${PA_files[2]} &
+    fi       
 
 # Wrapper for FSL's topup and eddy
     if ! [ -f "${sub_name}_den_unr_preproc.mif" ]; then
@@ -117,12 +117,12 @@ do
             rm ${sub_name}_den_unr_preproc_unbiased.mif 
             exit 1
         fi
-        
-        if ! [ $QC -eq 0 ]; then
-            mrview ${sub_name}_den_unr_preproc_unbiased.mif -overlay.load bias.mif &
-        fi
     fi
-   
+    
+    if ! [ $QC -eq 0 ]; then
+        mrview ${sub_name}_den_unr_preproc_unbiased.mif -overlay.load bias.mif &
+    fi
+       
 # Estimate response function(s) for spherical deconvolution
     if ! [ -f "wm.txt" ]; then
         dwi2response dhollander ${sub_name}_den_unr_preproc_unbiased.mif wm.txt gm.txt csf.txt -nthreads $cores
@@ -133,10 +133,10 @@ do
             cd $basedir
             continue
         fi
-        
-        if ! [ $QC -eq 0 ]; then
-            shview wm.txt &
-        fi
+    fi    
+    
+    if ! [ $QC -eq 0 ]; then
+        shview wm.txt &
     fi
     
 # Generate fibre orientation distributions
@@ -161,12 +161,12 @@ do
 # Create volume fraction for result inspection
     if ! [ -f "vf.mif" ]; then
         mrconvert -coord 3 0 wmfod.mif - | mrcat csffod.mif gmfod.mif - vf.mif    
-        if ! [ $QC -eq 0 ]; then
-            mrview ${sub_name}_den_unr_preproc_unbiased.mif -overlay.load vf.mif &
-            mrview vf.mif -odf.load_sh wmfod.mif &
-        fi
     fi      
     
+    if ! [ $QC -eq 0 ]; then
+        mrview ${sub_name}_den_unr_preproc_unbiased.mif -overlay.load vf.mif &
+        mrview vf.mif -odf.load_sh wmfod.mif &
+    fi
  
 # Intensity normalization 
     if ! [ -f "wmfod_norm.mif" ]; then
@@ -220,13 +220,13 @@ do
         matlab -batch "addpath('$basedir'); apply_rigid_transform('aparc+aseg.nii.gz', 'aparc+aseg_coreg', 'FS2dwi_0GenericAffine.mat')"
         # Also apply the transform to anatomic volume for checking purpose
         matlab -batch "addpath('$basedir'); apply_rigid_transform('T1_FS.nii.gz', 'T1_FS_coreg', 'FS2dwi_0GenericAffine.mat')"
-        
-        # Check registration
-        if ! [ $QC -eq 0 ]; then
-            mrview mean_b0_preprocessed.mif -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz &
-        fi
     fi
 
+    # Check registration
+    if ! [ $QC -eq 0 ]; then
+        mrview mean_b0_preprocessed.mif -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz &
+    fi
+    
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
     if ! [ -f "5tt_coreg.mif" ]; then
         # '5ttgen freesurfer' will invoke labelconvert by itself  
@@ -237,15 +237,16 @@ do
             cd $basedir
             continue
         fi
-        if ! [ $QC -eq 0 ]; then
-            mrview T1_FS_coreg.nii.gz -overlay.load 5tt_coreg.mif &
-        fi
     fi
     
     if ! [ -f "gmwmSeed_coreg.mif" ]; then
         5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif -nthreads $cores
     fi
 
+    if ! [ $QC -eq 0 ]; then
+        mrview T1_FS_coreg.nii.gz -overlay.load 5tt_coreg.mif &
+    fi
+    
 # For testing purpose, run 1M tracks only
     if ! [ -f "tracks_1M.tck" ]; then
         tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select 1000k wmfod_norm.mif tracks_1M.tck -nthreads $cores
@@ -262,10 +263,10 @@ do
         # tcksift -act 5tt_coreg.mif -term_number 100k tracks_10M.tck wmfod_norm.mif sift_1M.tck -nthreads $cores
         tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt tracks_1M.tck wmfod_norm.mif sift_1M.txt -nthreads $cores
         tckedit tracks_1M.tck -number 200k smallerTracts_200k.tck
-        
-        if ! [ $QC -eq 0 ]; then
-            mrview T1_FS_coreg.nii.gz –tractography.load smallerTracts_200k.tck &
-        fi
+    fi
+            
+    if ! [ $QC -eq 0 ]; then
+        mrview T1_FS_coreg.nii.gz –tractography.load smallerTracts_200k.tck &
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
