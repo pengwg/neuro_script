@@ -1,32 +1,32 @@
 #!/bin/bash
 
 
-#Created by Drs Wang and Thompson-Lake 
-#June 2023 RNI
+# Created by Drs Wang and Thompson-Lake 
+# June 2023 WVU RNI
+# Up to date version at https://github.com/pengwg/neuro_script
 
-#Requires files are in BIDS naming format
+# Requires files in BIDS naming format
+# Softwares required: mrtrix3, FSL, ANTs, Matlab
+# Requires segmentation and fs_default.txt from freesurfer
 
-#functions with in the script: 
-#Combines the PA files into single file
-#Performs denoising and degibbs correction on the DWI data.
-#Performs preprocessing steps including b0 extraction, topup, eddy, and bias correction using ANTs.
-#Estimates the response function for spherical deconvolution.
-#Generates fiber orientation distributions (FODs).
-#Performs intensity normalization and saves the normalized FODs.
-#Runs DTIFIT to generate diffusion tensor images (DTI).
-#Finds and converts the anatomical T1 image to the MIF format.
-#Registers T1 image to DWI space and generates 5TT (tissue type) segmentation and seed masks.
-#Performs tractography using tckgen and sifts the tracks using tcksift.
-#Converts the FreeSurfer parcellation to format and computes the connectome using tck2connectome.
+# functions within the script: 
+# Combines the PA files into single file
+# Performs denoising and degibbs correction on the DWI data.
+# Performs preprocessing steps including b0 extraction, topup, eddy, and bias correction using ANTs.
+# Estimates the response function for spherical deconvolution.
+# Generates fiber orientation distributions (FODs).
+# Performs intensity normalization and saves the normalized FODs.
+# Runs DTIFIT to generate diffusion tensor images (DTI).
+# Finds and converts the anatomical T1 image to the MIF format.
+# Registers T1 image to DWI space and generates 5TT (tissue type) segmentation and seed masks.
+# Performs tractography using tckgen and sifts the tracks using tcksift.
+# Converts the FreeSurfer parcellation to format and computes the connectome using tck2connectome.
 
-#BATMAN4 edits: commented out SIFT1, Freesurfer folder location changed, added mrview popups for QC, mrconvert T1_FS_correg to a mif file for viewing
+# BATMAN4 edits: commented out SIFT1, Freesurfer folder location changed, added mrview popups for QC, mrconvert T1_FS_correg to a mif file for viewing
 
 #---------------------  User's variables to be modified ---------------------
 
 cores=18
-
-# Absolute or relative path of the data folder to where the script located
-#data_path=FUS/
 
 # Define external drive mount point you need these nest lines in all your scripts!!
 external_drive="/media/dgt00003/dgytl"
@@ -39,7 +39,7 @@ relative_folder_path="CPO"
 data_path="$external_drive/$relative_folder_path"
 
 # Absolute or relative path of the data folder to where the script located
-#data_path=FUS/
+# data_path=FUS/
 
 # Set to 0 to disable quality control popup
 QC=1
