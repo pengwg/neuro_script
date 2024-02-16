@@ -13,11 +13,13 @@
 cores=10
 
 # Absolute or relative path of the data folder to where the script located
-data_path=/media/dgt00003/dgytl/FUS/
-subject=sub-220-FUS
+data_path=/media/dgt00003/dgytl/FUS
+subject=sub-224-FUS
 session=ses-00
 
 num_tracks=1k
+
+
 
 # Using target_seeds_${seeds_tag}.csv
 seeds_tag="ACPC"
@@ -36,20 +38,20 @@ cd $(dirname %0)
 # Absolute data path
 data_path_abs=$(readlink -f "$data_path")
 
-if [ -d "$data_path/$subject/$session/dwi/mrtrix" ]; then
-    cd $data_path/$subject/$session/dwi/mrtrix
+if [ -d "$data_path/$subject/$session/dwi/mrtrix3" ]; then
+    cd $data_path/$subject/$session/dwi/mrtrix3
 else
     echo -e "${YELLOW}$subject/$session run mrtrix first.$NC"
     exit 1
 fi
 
-printf "\n${GREEN}Entering $subject/$session/dwi/mrtrix/...$NC\n"
+printf "\n${GREEN}Entering $subject/$session/dwi/mrtrix3/...$NC\n"
 
 chmod a+x *
 
-
-if [ -d "../../../ses-00/anat" ]; then
-    REF_nii=$(find ../../../ses-00/anat \( -name "${subject}_ses-00_$ref_type.nii" -o -name "${subject}_ses-00_$ref_type.nii.gz" \) | head -n 1)
+if [ -d "$data_path/$subject/$session/anat" ]; then
+    REF_nii=$(find $data_path/$subject/$session/anat \( -name "${subject}_ses-00_$ref_type.nii" -o -name "${subject}_ses-00_$ref_type.nii.gz" \) | head -n 1)
+    
 fi
 
 if [ -z "$REF_nii" ]; then
@@ -68,6 +70,18 @@ if ! [ -f "T1_FS_coreg.nii.gz" ]; then
     exit 1
 fi
 
+#mkdir targeting
+#cd targeting
+
+    # Pierre suggested command line
+ 	#if ! [ -f "targetTracks_100M.tck" ]; then
+       #    tckgen -act ../5tt_coreg.mif -backtrack -seed_dynamic ../wmfod_norm.mif -nthreads $cores -cutoff 0.06 -maxlength 250 -step 0.5 -select 100M ../wmfod_norm.mif targetingTracks_100M.tck -crop_at_gmwmi
+        #   fi
+
+   # if ! [ -f "targetsift_10M.txt" ]; then
+    #    tcksift2 -act ../5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt targetingTracks_100M.tck ../wmfod_norm.mif targetsift_10M.txt -nthreads $cores -force
+   # fi
+
 if ! [ -d "targeting_tracks_${seeds_tag}" ]; then
     mkdir targeting_tracks_${seeds_tag}
 fi
@@ -77,10 +91,10 @@ cd targeting_tracks_${seeds_tag}
 # Register the ref volume to T1_FS_coreg.nii.gz
 # ${ref_type}2dwi_0GenericAffine.mat and ${ref_type}2dwi_Warped.nii.gz will be produced
 if ! [ -f "${ref_type}2dwi_0GenericAffine.mat" ]; then
-    antsRegistrationSyNQuick.sh -d 3 -t r -f ../T1_FS_coreg.nii.gz -m "../$REF_nii" -o ${ref_type}2dwi_ -n $cores
+    antsRegistrationSyNQuick.sh -d 3 -t r -f ../T1_FS_coreg.nii.gz -m "$REF_nii" -o ${ref_type}2dwi_ -n $cores
     
     # Check registration
-    mrview ../T1_FS_coreg.nii.gz -overlay.load AC2dwi_Warped.nii.gz -mode 2 &
+    #mrview ../T1_FS_coreg.nii.gz -overlay.load AC2dwi_Warped.nii.gz -mode 2 &
 fi 
 
 # Apply the registration transformation to the seed points in the csv file.
@@ -110,14 +124,15 @@ while IFS=',' read -r x0 y0 z0 r0 label comment <&3 && IFS=',' read -r x y z r l
     yint=$(echo $y | awk '{print int($1+0.5)}')
     zint=$(echo $z | awk '{print int($1+0.5)}')
     
-    # Pierre suggested command line
-    # tckgen -act {data_dir}/5tt_coreg_MNI.nii -backtrack -seed_dynamic {data_dir}/wmfod_norm_MNI.nii -nthreads 30 -cutoff 0.06 -maxlength 250 -step 0.5 -select 100M {data_dir}/wmfod_norm_MNI.nii {data_dir}/tracks_MNI_100M.tck -crop_at_gmwmi
 
-    tckgen -act ../5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r -select $num_tracks ../wmfod_norm.mif \
-           "tracks_${num_tracks}_${ref_type}_${x0}_${y0}_${z0}_RAS_${xint}_${yint}_${zint}.tck" \
-           -nthreads $cores -force \
-           # Uncomment the following arguments to match Pierre's usage
-           # -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi
+           
+
+     #With Pierre filters      
+
+   tckgen -act ../5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r -select $num_tracks ../wmfod_norm.mif \
+         "tracks_${num_tracks}_${ref_type}_${x0}_${y0}_${z0}_RAS_${xint}_${yint}_${zint}.tck" \
+         -nthreads $cores \
+           -cutoff 0.08 -maxlength 250 -step 0.5 -crop_at_gmwmi -force
 done
 
 # Close the file descriptors
@@ -125,4 +140,6 @@ exec 3<&-
 exec 4<&-
 
 chmod a+x *
+
+mrview $data_path/$subject/$session/dwi/mrtrix3/T1_FS_coreg.mif &
 
