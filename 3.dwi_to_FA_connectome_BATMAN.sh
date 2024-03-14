@@ -325,7 +325,7 @@ do
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
     note="${sessions_dir[$n]} ACT done.$NC  $(date '+%Y-%m-%d %H:%M')"
-    echo -e "$note" >> $data_path/script4BATMAN_log.txt
+    echo -e "$note" >> $basedir/script4BATMAN_log.txt
 
 
 # ----------------- Connectome from freesurfer parcels -----------------------
@@ -351,7 +351,7 @@ do
         tensor2metric tensor.mif -fa FA.mif -force -nthreads $cores  
 
         # Computing the mean FA of tracks 
-        tcksample  tracks_10M.tck FA.mif tracks_meanFA_10M.csv -stat_tck mean -force -nthreads $cores 
+        tcksample tracks_10M.tck FA.mif tracks_meanFA_10M.csv -stat_tck mean -force -nthreads $cores 
    
         tck2connectome -symmetric -zero_diagonal \
                        -tck_weights_in sift_10M.txt tracks_10M.tck fs_parcels_coreg.nii.gz \
@@ -361,13 +361,13 @@ do
     
     chmod a+x *
     
-    note= "${sessions_dir[$n]} connectome done.$NC  $(date '+%Y-%m-%d %H:%M')" 
-    echo -e "$note" >> $data_path/script4BATMAN_log.txt
+    note="${sessions_dir[$n]} connectome done.$NC  $(date '+%Y-%m-%d %H:%M')" 
+    echo -e "$note" >> $basedir/script4BATMAN_log.txt
    
     echo -e "${YELLOW}${BOLD}All done for ${sessions_dir[$n]}.$NC  $(date '+%Y-%m-%d %H:%M')" 
 
     note="All done for ${sessions_dir[$n]}.$NC  $(date '+%Y-%m-%d %H:%M')"
-    echo -e "$note" >> $data_path/script4BATMAN_log.txt
+    echo -e "$note" >> $basedir/script4BATMAN_log.txt
 
     cd $basedir
 done
