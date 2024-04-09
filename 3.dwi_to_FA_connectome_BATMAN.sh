@@ -6,13 +6,13 @@
 cores=18
 
 # Absolute or relative path of the data folder to where the script located
-data_path=FUS/
+data_path=~/Work/fusOUD/FUS/sub-220-FUS
 
 # Set to 0 to disable quality control popup
-QC=1
+QC=0
 
 # Freesurfer subject path
-SUBJECTS_DIR=~/Work/fusOUD/FS/
+SUBJECTS_DIR=~/Work/fusOUD/FS
 
 #---------------------------------------------------------------------------
 
@@ -32,8 +32,8 @@ for (( n=0; n<${#sessions_dir[@]}; n++ ))
 do
     printf "\n${GREEN}Entering ${sessions_dir[$n]} ...$NC\n"
     cd ${sessions_dir[$n]}
-    if ! [ -d mrtrix ]; then
-        mkdir mrtrix
+    if ! [ -d mrtrix3 ]; then
+        mkdir mrtrix3
     fi
 
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
@@ -49,20 +49,21 @@ do
     IFS='/' read -ra parts <<< ${sessions_dir[$n]}
     N=${#parts[@]}
     sub_name="${parts[N-3]}_${parts[N-2]}"
+    sub_name_ses_00="${parts[N-3]}_ses-00"
         
-    if ! [ -f "mrtrix/$sub_name.mif" ]; then
-        mrconvert $sub_dwi_nii mrtrix/$sub_name.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
+    if ! [ -f "mrtrix3/$sub_name.mif" ]; then
+        mrconvert $sub_dwi_nii mrtrix3/$sub_name.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
     fi
     
     sub_PA_niis=$(ls *2mm_PA*.nii*)
     for sub_PA_nii in $sub_PA_niis; do
         sub_PA=$(echo "$sub_PA_nii" | sed 's/\.nii.*$//')
-        if ! [ -f "mrtrix/$sub_PA.mif" ]; then
-            mrconvert $sub_PA_nii mrtrix/$sub_PA.mif
+        if ! [ -f "mrtrix3/$sub_PA.mif" ]; then
+            mrconvert $sub_PA_nii mrtrix3/$sub_PA.mif
         fi
     done
     
-    cd mrtrix
+    cd mrtrix3
     
 # Denoise and degibbs
     if ! [ -f "${sub_name}_den.mif" ]; then
@@ -196,8 +197,9 @@ do
 
 # ----------------- Anatomically Constrained Tractography ---------------------
 
-        
-    fs_subject="FS_$sub_name"
+
+# Use freesurfer segmentation from ses-00    
+    fs_subject="FS_$sub_name_ses_00"
     
     if ! [ -f "$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz" ]; then
         echo -e "${YELLOW}$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz not found.$NC"
