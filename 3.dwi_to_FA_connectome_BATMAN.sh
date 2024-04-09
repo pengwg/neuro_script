@@ -42,10 +42,11 @@ data_path="$external_drive/$relative_folder_path"
 # data_path=FUS/
 
 # Set to 0 to disable quality control popup
-QC=1
+QC=0
 
 # Freesurfer subject path
 SUBJECTS_DIR=/media/dgt00003/dgytl/FS
+
 
 #---------------------------------------------------------------------------
 
@@ -65,7 +66,9 @@ for (( n=0; n<${#sessions_dir[@]}; n++ ))
 do
     printf "\n${YELLOW}Entering ${sessions_dir[$n]} ...$NC\n"
     cd ${sessions_dir[$n]}
+
     echo ${sessions_dir[$n]}
+
     if ! [ -d mrtrix3 ]; then
         mkdir mrtrix3
     fi
@@ -84,6 +87,7 @@ do
     IFS='/' read -ra parts <<< ${sessions_dir[$n]}
     N=${#parts[@]}
     sub_name="${parts[N-3]}_${parts[N-2]}"
+    sub_name_ses_00="${parts[N-3]}_ses-00"
         
     if ! [ -f "mrtrix3/$sub_name.mif" ]; then
         mrconvert $sub_dwi_nii mrtrix3/$sub_name.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
