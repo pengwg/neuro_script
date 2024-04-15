@@ -6,7 +6,7 @@
 cores=18
 
 # Absolute or relative path of the data folder to where the script located
-data_path=~/Work/fusOUD/FUS/sub-220-FUS
+data_path=~/Work/fusOUD/FUS/sub-222-FUS
 
 # Set to 0 to disable quality control popup
 QC=0
@@ -199,7 +199,7 @@ do
 
 
 # Use freesurfer segmentation from ses-00    
-    fs_subject="FS_$sub_name_ses_00"
+    fs_subject="FS_$sub_name"
     
     if ! [ -f "$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz" ]; then
         echo -e "${YELLOW}$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz not found.$NC"
