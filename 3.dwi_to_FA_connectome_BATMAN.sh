@@ -248,7 +248,8 @@ do
 
 # ----------------- Anatomically Constrained Tractography ---------------------
 
-       
+
+
     fs_subject="FS_$sub_name"
     
     if ! [ -f "$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz" ]; then
