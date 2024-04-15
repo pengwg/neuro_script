@@ -1,8 +1,8 @@
 #!/bin/bash
 
-check_registraion_only=1
+check_registration_only=1
 
-session_path=~/Work/fusOUD/FUS/sub-220-FUS/ses-30
+session_path=~/Work/fusOUD/FUS/sub-222-FUS/ses-30
 
 if ! [ -d $session_path ]; then
     echo "Path not exists: $session_path"
@@ -22,10 +22,15 @@ fi
 
 cd mrtrix3
 
+YELLOW='\033[0;33m'
+NC='\033[0m'
+echo -e "${YELLOW}Checking $session_path ...$NC"
+
 # Check freesurfer registration
+mrview T1_FS.nii.gz -overlay.load T1_FS_coreg.nii.gz &
 mrview mean_b0_preprocessed.mif -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz &
 
-if [ $check_registraion_only ]
+if [ $check_registration_only ]; then
     exit 0
 fi
 
