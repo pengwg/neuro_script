@@ -26,7 +26,7 @@
 
 #---------------------  User's variables to be modified ---------------------
 
-cores=18
+cores=10
 
 # Define external drive mount point you need these nest lines in all your scripts!!
 external_drive="/media/dgt00003/dgytl"
@@ -40,7 +40,7 @@ data_path="$external_drive/$relative_folder_path"
 
 # Absolute or relative path of the data folder to where the script located
 # data_path=FUS/
-
+data_path=~/Work/fusOUD/FUS/sub-222-FUS
 # Set to 0 to disable quality control popup
 QC=0
 
@@ -106,7 +106,11 @@ do
     
 # Denoise and degibbs
     if ! [ -f "${sub_name}_den.mif" ]; then
+        start=$(date +%s)
         dwidenoise $sub_name.mif ${sub_name}_den.mif -noise noise.mif -nthreads $cores -force
+        end=$(date +%s)
+        elapsed_seconds=$((end-start))
+        echo "dwidenoise: $((elapsed_seconds / 60)) minutes and $((elapsed_seconds % 60)) seconds"
         
         # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
@@ -143,7 +147,11 @@ do
 
 # Wrapper for FSL's topup and eddy
     if ! [ -f "${sub_name}_den_unr_preproc.mif" ]; then
+        start=$(date +%s)
         dwifslpreproc ${sub_name}_den_unr.mif ${sub_name}_den_unr_preproc.mif -pe_dir AP -rpe_pair -se_epi b0_pair.mif -topup_options " --nthr="$cores -eddy_options " --slm=linear --data_is_shelled"
+        end=$(date +%s)
+        elapsed_seconds=$((end-start))
+        echo "dwifslpreproc: $((elapsed_seconds / 60)) minutes and $((elapsed_seconds % 60)) seconds"
         
         # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
