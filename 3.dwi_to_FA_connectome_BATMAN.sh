@@ -143,7 +143,7 @@ do
 
 # Wrapper for FSL's topup and eddy
     if ! [ -f "${sub_name}_den_unr_preproc.mif" ]; then
-        dwifslpreproc ${sub_name}_den_unr.mif ${sub_name}_den_unr_preproc.mif -pe_dir AP -rpe_pair -se_epi b0_pair.mif -eddy_options " --slm=linear --data_is_shelled"
+        dwifslpreproc ${sub_name}_den_unr.mif ${sub_name}_den_unr_preproc.mif -pe_dir AP -rpe_pair -se_epi b0_pair.mif -topup_options " --nthr="$cores -eddy_options " --slm=linear --data_is_shelled"
         
         # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
