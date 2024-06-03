@@ -3,7 +3,7 @@
 cores=10
 
 # Absolute or relative path of the data folder to where the script located
-data_path=FUS/
+data_path=~/Work/fusOUD/FUS/
 subject=sub-215-FUS
 session=ses-00
 
@@ -14,8 +14,8 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 
 cd $(dirname %0)
-if [ -d "$data_path/$subject/$session/dwi/mrtrix" ]; then
-    cd $data_path/$subject/$session/dwi/mrtrix
+if [ -d "$data_path/$subject/$session/dwi/mrtrix3" ]; then
+    cd $data_path/$subject/$session/dwi/mrtrix3
 else
     echo -e "${YELLOW}$subject/$session run BATMAN script first.$NC"
     exit 1
