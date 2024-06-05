@@ -8,9 +8,10 @@ num_tracks=1M
 
 # Absolute or relative path of the data folder to where the script located
 data_path=~/Work/fusOUD/FUS/sub-224-FUS
+mask_path=~/Nextcloud/Study/fusOUD/Treatment_Masks
 
 # Set to 0 to disable quality control popup
-QC=1
+QC=0
 
 #---------------------------------------------------------------------------
 
@@ -43,7 +44,7 @@ do
         continue
     fi
     
-    if ! [ -f "../../ses-00/anat/${sub_name}_mask_Left_T1.nii.gz" ]; then
+    if ! [ -f "$mask_path/${sub_name}_mask_Left_T1.nii.gz" ]; then
         echo "No mask files found!"
         cd $basedir
         continue
@@ -59,8 +60,8 @@ do
         
         # Use matlab method to apply image header transformation, avoiding interpolation of image data
         # Requires apply_rigid_transform.m in the script folder
-        matlab -batch "addpath('$basedir'); apply_rigid_transform('../../../ses-00/anat/${sub_name}_mask_Left_T1.nii.gz', 'mask_left_coreg', 'T1w2dwi_0GenericAffine.mat')"
-        matlab -batch "addpath('$basedir'); apply_rigid_transform('../../../ses-00/anat/${sub_name}_mask_Right_T1.nii.gz', 'mask_right_coreg', 'T1w2dwi_0GenericAffine.mat')"
+        matlab -batch "addpath('$basedir'); apply_rigid_transform('$mask_path/${sub_name}_mask_Left_T1.nii.gz', 'mask_left_coreg', 'T1w2dwi_0GenericAffine.mat')"
+        matlab -batch "addpath('$basedir'); apply_rigid_transform('$mask_path/${sub_name}_mask_Right_T1.nii.gz', 'mask_right_coreg', 'T1w2dwi_0GenericAffine.mat')"
         # mrconvert T1_FS_coreg.nii.gz T1_FS_coreg.mif -force
     fi
 
