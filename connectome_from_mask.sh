@@ -4,7 +4,7 @@
 
 cores=18 
 
-num_tracks=1M
+num_tracks=500k
 
 # Absolute or relative path of the data folder to where the script located
 data_path=~/Work/fusOUD/FUS/sub-224-FUS
@@ -71,48 +71,32 @@ do
     fi
 
 # Tracks generation from masks
-    if ! [ -f "tracks_${num_tracks}_left.tck" ]; then
-        tckgen -act ../mrtrix4/5tt_coreg.mif -backtrack -seed_image mask_left_coreg.nii.gz -select $num_tracks ../mrtrix3/wmfod_norm.mif tracks_${num_tracks}_left.tck -nthreads $cores
+    if ! [ -f "tracks_from_mask_${num_tracks}.tck" ]; then
+        tckgen -act ../mrtrix4/5tt_coreg.mif -backtrack -seed_image mask_left_coreg.nii.gz -seed_image mask_right_coreg.nii.gz \
+               -select $num_tracks ../mrtrix3/wmfod_norm.mif tracks_from_mask_${num_tracks}.tck -nthreads $cores
         
         # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
-            rm tracks_${num_tracks}_left.tck
+            rm tracks_from_mask_${num_tracks}.tck
             exit 1
         fi
     fi
     
-    if ! [ -f "tracks_${num_tracks}_right.tck" ]; then
-        tckgen -act ../mrtrix4/5tt_coreg.mif -backtrack -seed_image mask_right_coreg.nii.gz -select $num_tracks ../mrtrix3/wmfod_norm.mif tracks_${num_tracks}_right.tck -nthreads $cores
-        
-        # Clean up and exit if user presses Ctrl->C
-        if ! [ $? -eq 0 ]; then
-            rm tracks_${num_tracks}_right.tck
-            exit 1
-        fi
-    fi
     # tckedit tracks_$num_tracks.tck -number 200k smallerTracks_200k.tck -force
 
     # mrview ${sub_name}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
-    if ! [ -f "sift_1M_left.tck" ]; then
-        tcksift -act ../mrtrix4/5tt_coreg.mif -term_number 1M tracks_${num_tracks}_left.tck ../mrtrix3/wmfod_norm.mif sift_1M_left.tck -nthreads $cores -force
-    fi
+    # if ! [ -f "sift_from_mask_1M.tck" ]; then
+    #    tcksift -act ../mrtrix4/5tt_coreg.mif -term_number 1M tracks_from_mask_${num_tracks}.tck ../mrtrix3/wmfod_norm.mif sift_from_mask_1M.tck -nthreads $cores -force
+    # fi
     
-    if ! [ -f "sift_1M_right.tck" ]; then
-        tcksift -act ../mrtrix4/5tt_coreg.mif -term_number 1M tracks_${num_tracks}_right.tck ../mrtrix3/wmfod_norm.mif sift_1M_right.tck -nthreads $cores -force
-    fi
 
-    if ! [ -f "sift_${num_tracks}_left.txt" ]; then
-        tcksift2 -act ../mrtrix4/5tt_coreg.mif -out_mu sift_mu_left.txt -out_coeffs sift_coeffs_left.txt tracks_${num_tracks}_left.tck ../mrtrix3/wmfod_norm.mif sift_${num_tracks}_left.txt -nthreads $cores -force
-        tckedit tracks_${num_tracks}_left.tck -number 200k smallerTracts_200k_left.tck
-    fi
-    
-    if ! [ -f "sift_${num_tracks}_right.txt" ]; then
-        tcksift2 -act ../mrtrix4/5tt_coreg.mif -out_mu sift_mu_right.txt -out_coeffs sift_coeffs_right.txt tracks_${num_tracks}_right.tck ../mrtrix3/wmfod_norm.mif sift_${num_tracks}_right.txt -nthreads $cores -force
-        tckedit tracks_${num_tracks}_right.tck -number 200k smallerTracts_200k_right.tck
+    if ! [ -f "sift_from_mask_${num_tracks}.txt" ]; then
+        tcksift2 -act ../mrtrix4/5tt_coreg.mif -out_mu sift_mu_left.txt -out_coeffs sift_coeffs_left.txt tracks_from_mask_${num_tracks}.tck ../mrtrix3/wmfod_norm.mif sift_from_mask_${num_tracks}.txt -nthreads $cores -force
+        tckedit tracks_from_mask_${num_tracks}.tck -number 200k smallerTracts_200k.tck
     fi
             
     if ! [ $QC -eq 0 ]; then
-        mrview ../mrtrix4/T1_FS_coreg.nii.gz –tractography.load smallerTracts_200k_left.tck –tractography.load smallerTracts_200k_right.tck &
+        mrview ../mrtrix4/T1_FS_coreg.nii.gz –tractography.load smallerTracts_200k.tck &
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
@@ -126,14 +110,9 @@ do
     # Connectome with individual freesurfer atlas regions
     if ! [ -f "${sub_name}_${num_tracks}_connectome_right.csv" ]; then
         tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
-                       -tck_weights_in sift_${num_tracks}_left.txt tracks_${num_tracks}_left.tck ../mrtrix4/fs_parcels_coreg.nii.gz \
-                       ${sub_name}_${num_tracks}_connectome_left.csv \
-                       -out_assignment ${sub_name}_${num_tracks}_connectome_assignments_left.csv
-                       
-        tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
-                       -tck_weights_in sift_${num_tracks}_right.txt tracks_${num_tracks}_right.tck ../mrtrix4/fs_parcels_coreg.nii.gz \
-                       ${sub_name}_${num_tracks}_connectome_right.csv \
-                       -out_assignment ${sub_name}_${num_tracks}_connectome_assignments_right.csv                     
+                       -tck_weights_in sift_from_mask_${num_tracks}.txt tracks_from_mask_${num_tracks}.tck ../mrtrix4/fs_parcels_coreg.nii.gz \
+                       ${sub_name}_${num_tracks}_connectome.csv \
+                       -out_assignment ${sub_name}_${num_tracks}_connectome_assignments.csv              
     fi
     
     note="${sessions_dir[$n]} connectome done.$NC  $(date '+%Y-%m-%d %H:%M')" 
