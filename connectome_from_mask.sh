@@ -36,7 +36,8 @@ do
 # The following use the session path to construct subject name, e.g. /FUS/sub-212/ses-1/dwi -> sub-212_ses-1    
     IFS='/' read -ra parts <<< ${sessions_dir[$n]}
     N=${#parts[@]}
-    sub_name="${parts[N-3]}_${parts[N-2]}"
+    sub_name="${parts[N-3]}"
+    ses_name="${parts[N-2]}"
     
     if ! [ -f "mrtrix3/FS2dwi_0GenericAffine.mat" ]; then
         echo "Run BATMAN script first!"
@@ -44,7 +45,7 @@ do
         continue
     fi
     
-    if ! [ -f "$mask_path/${sub_name}_mask_Left_T1.nii.gz" ]; then
+    if ! [ -f "$mask_path/${sub_name}_ses-00_mask_Left_T1.nii.gz" ]; then
         echo "No mask files found!"
         cd $basedir
         continue
@@ -56,12 +57,12 @@ do
     cd connectome_from_mask
     
     if ! [ -f "mask_right_coreg.nii.gz" ]; then
-        antsRegistrationSyNQuick.sh -d 3 -t r -f ../mrtrix4/T1_FS_coreg.nii.gz -m ../../anat/${sub_name}_T1w.nii.gz -o T1w2dwi_ -n $cores
+        antsRegistrationSyNQuick.sh -d 3 -t r -f ../mrtrix4/T1_FS_coreg.nii.gz -m $mask_path/${sub_name}_ses-00_T1w.nii.gz -o T1w2dwi_ -n $cores
         
         # Use matlab method to apply image header transformation, avoiding interpolation of image data
         # Requires apply_rigid_transform.m in the script folder
-        matlab -batch "addpath('$basedir'); apply_rigid_transform('$mask_path/${sub_name}_mask_Left_T1.nii.gz', 'mask_left_coreg', 'T1w2dwi_0GenericAffine.mat')"
-        matlab -batch "addpath('$basedir'); apply_rigid_transform('$mask_path/${sub_name}_mask_Right_T1.nii.gz', 'mask_right_coreg', 'T1w2dwi_0GenericAffine.mat')"
+        matlab -batch "addpath('$basedir'); apply_rigid_transform('$mask_path/${sub_name}_ses-00_mask_Left_T1.nii.gz', 'mask_left_coreg', 'T1w2dwi_0GenericAffine.mat')"
+        matlab -batch "addpath('$basedir'); apply_rigid_transform('$mask_path/${sub_name}_ses-00_mask_Right_T1.nii.gz', 'mask_right_coreg', 'T1w2dwi_0GenericAffine.mat')"
         # mrconvert T1_FS_coreg.nii.gz T1_FS_coreg.mif -force
     fi
 
@@ -100,28 +101,22 @@ do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
-    note="${sessions_dir[$n]} ACT done.$NC  $(date '+%Y-%m-%d %H:%M')"
-    echo -e "$note" >> $basedir/script4BATMAN_log.txt
 
 
 # ----------------- Connectome from freesurfer parcels -----------------------
  
                      
     # Connectome with individual freesurfer atlas regions
-    if ! [ -f "${sub_name}_${num_tracks}_connectome_right.csv" ]; then
+    if ! [ -f "${sub_name}_${ses_name}_${num_tracks}_connectome.csv" ]; then
+        matlab -batch "addpath('$basedir'); apply_rigid_transform('$mask_path/${sub_name}_ses-00_parcels_with_mask.nii.gz', 'parcels_with_mask_coreg', 'T1w2dwi_0GenericAffine.mat')"
+        
         tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
-                       -tck_weights_in sift_from_mask_${num_tracks}.txt tracks_from_mask_${num_tracks}.tck ../mrtrix4/fs_parcels_coreg.nii.gz \
-                       ${sub_name}_${num_tracks}_connectome.csv \
-                       -out_assignment ${sub_name}_${num_tracks}_connectome_assignments.csv              
+                       -tck_weights_in sift_from_mask_${num_tracks}.txt tracks_from_mask_${num_tracks}.tck parcels_with_mask_coreg.nii.gz \
+                       ${sub_name}_${ses_name}_mask_connectome.csv -force \
+                       -out_assignment ${sub_name}_${ses_name}_${num_tracks}_connectome_assignments.csv    
     fi
-    
-    note="${sessions_dir[$n]} connectome done.$NC  $(date '+%Y-%m-%d %H:%M')" 
-    echo -e "$note" >> $basedir/script4BATMAN_log.txt
-   
+  
     echo -e "${YELLOW}${BOLD}All done for ${sessions_dir[$n]}.$NC  $(date '+%Y-%m-%d %H:%M')" 
-
-    note="All done for ${sessions_dir[$n]}.$NC  $(date '+%Y-%m-%d %H:%M')"
-    echo -e "$note" >> $basedir/script4BATMAN_log.txt
 
     cd $basedir
 done
