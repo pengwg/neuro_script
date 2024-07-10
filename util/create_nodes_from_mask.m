@@ -2,14 +2,13 @@ clear
 
 mask_path = '~/Nextcloud/Study/fusOUD/Treatment_Masks';
 fs_path = '~/Work/fusOUD/FS';
-out_path = '~/Nextcloud/Study/fusOUD/nodes_from_masks';
 
 subjects_list = dir([mask_path '/*T1w.nii.gz']);
 % subjects_list = {'sub-224-FUS', 'sub-218-FUS', 'sub-219-FUS'};
 
 LOI = labels_of_interest();
 
-for n = 14 : 14 %length(subjects_list)
+for n = 9 : 9 %length(subjects_list)
     sub_name = subjects_list(n).name(1 : 11);
     fs_path_subject = [fs_path '/FS_' sub_name '_ses-00/mri/aparc+aseg.mgz'];
     system(['mri_convert ' fs_path_subject ' aparc+aseg.nii']);
@@ -36,8 +35,8 @@ for n = 14 : 14 %length(subjects_list)
     parcels_vol(resampled_mask_vol > 0) = 0;
     parcels_vol = parcels_vol + resampled_mask_vol;
 
-    niftiwrite(parcels_vol, [out_path '/' sub_name '_ses-00_parcels_with_mask'], parcels_info, 'Compressed', true);
-    disp([out_path '/' sub_name '_ses-00_parcels_with_mask.nii.gz created!'])
+    niftiwrite(parcels_vol, [mask_path '/' sub_name '_ses-00_parcels_with_mask'], parcels_info, 'Compressed', true);
+    disp([mask_path '/' sub_name '_ses-00_parcels_with_mask.nii.gz created!'])
 end
 
 delete aparc+aseg.nii fs_parcels.nii resampled_mask.nii mask.nii
