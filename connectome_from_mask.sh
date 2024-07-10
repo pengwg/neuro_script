@@ -57,7 +57,7 @@ do
     cd connectome_from_mask
     
     if ! [ -f "mask_right_coreg.nii.gz" ]; then
-        antsRegistrationSyNQuick.sh -d 3 -t r -f ../mrtrix4/T1_FS_coreg.nii.gz -m $mask_path/${sub_name}_ses-00_T1w.nii.gz -o T1w2dwi_ -n $cores
+        antsRegistrationSyNQuick.sh -d 3 -t r -f ../mrtrix3/T1_FS_coreg.nii.gz -m $mask_path/${sub_name}_ses-00_T1w.nii.gz -o T1w2dwi_ -n $cores
         
         # Use matlab method to apply image header transformation, avoiding interpolation of image data
         # Requires apply_rigid_transform.m in the script folder
@@ -73,7 +73,7 @@ do
 
 # Tracks generation from masks
     if ! [ -f "tracks_from_mask_${num_tracks}.tck" ]; then
-        tckgen -act ../mrtrix4/5tt_coreg.mif -backtrack -seed_image mask_left_coreg.nii.gz -seed_image mask_right_coreg.nii.gz \
+        tckgen -act ../mrtrix3/5tt_coreg.mif -backtrack -seed_image mask_left_coreg.nii.gz -seed_image mask_right_coreg.nii.gz \
                -select $num_tracks ../mrtrix3/wmfod_norm.mif tracks_from_mask_${num_tracks}.tck -nthreads $cores
         
         # Clean up and exit if user presses Ctrl->C
@@ -87,17 +87,17 @@ do
 
     # mrview ${sub_name}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
     # if ! [ -f "sift_from_mask_1M.tck" ]; then
-    #    tcksift -act ../mrtrix4/5tt_coreg.mif -term_number 1M tracks_from_mask_${num_tracks}.tck ../mrtrix3/wmfod_norm.mif sift_from_mask_1M.tck -nthreads $cores -force
+    #    tcksift -act ../mrtrix3/5tt_coreg.mif -term_number 1M tracks_from_mask_${num_tracks}.tck ../mrtrix3/wmfod_norm.mif sift_from_mask_1M.tck -nthreads $cores -force
     # fi
     
 
     if ! [ -f "sift_from_mask_${num_tracks}.txt" ]; then
-        tcksift2 -act ../mrtrix4/5tt_coreg.mif -out_mu sift_mu_left.txt -out_coeffs sift_coeffs_left.txt tracks_from_mask_${num_tracks}.tck ../mrtrix3/wmfod_norm.mif sift_from_mask_${num_tracks}.txt -nthreads $cores -force
+        tcksift2 -act ../mrtrix3/5tt_coreg.mif -out_mu sift_mu_left.txt -out_coeffs sift_coeffs_left.txt tracks_from_mask_${num_tracks}.tck ../mrtrix3/wmfod_norm.mif sift_from_mask_${num_tracks}.txt -nthreads $cores -force
         tckedit tracks_from_mask_${num_tracks}.tck -number 200k smallerTracts_200k.tck
     fi
             
     if ! [ $QC -eq 0 ]; then
-        mrview ../mrtrix4/T1_FS_coreg.nii.gz –tractography.load smallerTracts_200k.tck &
+        mrview ../mrtrix3/T1_FS_coreg.nii.gz –tractography.load smallerTracts_200k.tck &
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
