@@ -13,9 +13,9 @@
 cores=10
 
 # Absolute or relative path of the data folder to where the script located
-data_path=FUS/
-subject=sub-220-FUS
-session=ses-00
+data_path=/home/pw0032/Work/fusOUD/FUS-RCT/
+subject=sub-006-RCT
+session=ses-1-00
 
 num_tracks=1k
 
@@ -36,22 +36,22 @@ cd $(dirname %0)
 # Absolute data path
 data_path_abs=$(readlink -f "$data_path")
 
-if [ -d "$data_path/$subject/$session/dwi/mrtrix" ]; then
-    cd $data_path/$subject/$session/dwi/mrtrix
+if [ -d "$data_path/$subject/$session/dwi/mrtrix3" ]; then
+    cd $data_path/$subject/$session/dwi/mrtrix3
 else
     echo -e "${YELLOW}$subject/$session run mrtrix first.$NC"
     exit 1
 fi
 
-printf "\n${GREEN}Entering $subject/$session/dwi/mrtrix/...$NC\n"
+printf "\n${GREEN}Entering $subject/$session/dwi/mrtrix3/...$NC\n"
 
 # Always use the reference volume and seed files from ses-00
-if [ -d "../../../ses-00/anat" ]; then
-    REF_nii=$(find ../../../ses-00/anat \( -name "${subject}_ses-00_$ref_type.nii" -o -name "${subject}_ses-00_$ref_type.nii.gz" \) | head -n 1)
+if [ -d "../../../ses-1-00/anat" ]; then
+    REF_nii=$(find ../../../ses-1-00/anat \( -name "${subject}_ses-00_$ref_type.nii" -o -name "${subject}_ses-1-00_$ref_type.nii.gz" \) | head -n 1)
 fi
 
 if [ -z "$REF_nii" ]; then
-    echo -e "${YELLOW}${subject}_${session}_$ref_type.nii(.gz) not found.$NC"
+    echo -e "${YELLOW}${subject}_ses-1-00_$ref_type.nii(.gz) not found.$NC"
     exit 1
 fi
 
