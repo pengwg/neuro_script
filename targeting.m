@@ -4,17 +4,16 @@ close all
 cores = 10;
 
 data_path = '/home/pw0032/Work/fusOUD/FUS-RCT/';
-subject = 'sub-006-RCT';
+subject = 'sub-011-RCT';
 session = 'ses-1-00';
+output = '~/Nextcloud/Study/FUS-RCT/RCT11_01/tck_count_inc';
 
-num_tracks = '1k';
+target_AC0 = [ 10, 4, 1, 1;
+              -10, 4, 1, 1];
+r = 0.7;
 
-target_AC0 = [ 11, 4, 0, 1];
-             % -9, 3, 0, 1];
-r = 0.5;
+D = 4;
 
-% Using target_seeds_${seeds_tag}.csv
-seeds_tag = 'ACPC';
 
 mrtrix_path = fullfile(data_path, subject, session, 'dwi', 'mrtrix3');
 targeting_path = fullfile(mrtrix_path, 'targeting_tracks_ACPC');
@@ -57,34 +56,59 @@ AC2dwi_transform_data = load([targeting_path '/AC2dwi_0GenericAffine.mat']);
 AC2dwi_transform = ea_antsmat2mat(AC2dwi_transform_data.AffineTransform_double_3_3, ...
                                      AC2dwi_transform_data.fixed);
 
-[dx, dy] = meshgrid(-3:1:3, 3:-1:-3);
-count = zeros(size(dx));
 
-for k = 1 : length(dx(:))
-    target_AC = target_AC0 + [dx(k), dy(k), 0, 0];
+[X, Y, Z] = meshgrid(-20:1:20, -3:1:10, -8:1:10);
+count = zeros(size(X));
+count_i = 1 : length(count(:));
 
-    target_dwi = target_AC * AC2dwi_transform';
+NAc1 = abs(X(:) - target_AC0(1, 1)) <= D & abs(Y(:) - target_AC0(1, 2)) <= D & abs(Z(:) - target_AC0(1, 3)) <= D;
+NAc2 = abs(X(:) - target_AC0(2, 1)) <= D & abs(Y(:) - target_AC0(2, 2)) <= D & abs(Z(:) - target_AC0(2, 3)) <= D;
+NAc = NAc1 | NAc2;
+count_i = count_i(NAc);
 
-    for i = 1 : size(target_dwi, 1)
-        x0 = target_AC(i, 1);
-        y0 = target_AC(i, 2);
-        z0 = target_AC(i, 3);
+target_AC = [X(NAc), Y(NAc), Z(NAc), ones(size(X(NAc)))];
+target_dwi = target_AC * AC2dwi_transform';
 
-        x = target_dwi(i, 1);
-        y = target_dwi(i, 2);
-        z = target_dwi(i, 3);
-
-        tck_file = sprintf('%s/seeds_2000_AC_%d_%d_%d_RAS_%d_%d_%d.tck', targeting_path, x0, y0, z0, round(x), round(y), round(z));
-        cmd = sprintf('tckgen -act %s/5tt_coreg.mif -backtrack -seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -nthreads %d -force -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi -seeds 1000', ...
-            mrtrix_path, x, y, z, r, mrtrix_path, tck_file, cores);
-        system(cmd);
-        count(k) = count_tracks(tck_file);
-    end
-
+if ~isfile([targeting_path '/include_spec.nii'])
+    LOI = labels_of_interest();
+    parcels_info = niftiinfo([mrtrix_path '/fs_parcels_coreg.nii.gz']);
+    parcels_vol = niftiread(parcels_info);
+    parcels_vol(~ismember(parcels_vol, LOI)) = 0;
+    parcels_vol(ismember(parcels_vol, LOI)) = 1;
+    niftiwrite(parcels_vol, [targeting_path '/include_spec'], parcels_info);
 end
 
+for k = 1 : length(X(NAc))
+    x0 = target_AC(k, 1);
+    y0 = target_AC(k, 2);
+    z0 = target_AC(k, 3);
+
+    x = target_dwi(k, 1);
+    y = target_dwi(k, 2);
+    z = target_dwi(k, 3);
+
+    tck_file = sprintf('%s/seeds_1000_AC_%d_%d_%d_RAS_%d_%d_%d.tck', targeting_path, x0, y0, z0, round(x), round(y), round(z));
+    if ~isfile(tck_file)
+        disp(['Compute ', tck_file, '...'])
+        cmd = sprintf('tckgen -act %s/5tt_coreg.mif -backtrack -include %s/include_spec.nii -seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -nthreads %d -force -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi -seeds 1000 -quiet', ...
+            mrtrix_path, targeting_path, x, y, z, r, mrtrix_path, tck_file, cores);
+        system(cmd);
+    end
+    count(count_i(k)) = count_tracks(tck_file);
+end
+count = permute(count, [2, 1, 3]);
+
+ref_info = niftiinfo(ref_nii_file);
+ref_info.PixelDimensions = [1, 1, 1];
+ref_info.Transform.T = eye(4);
+ref_info.ImageSize = size(count);
+ref_info.Transform.T(4, 1:3) = [X(1) Y(1) Z(1)];
+
+niftiwrite(int16(count), output, ref_info);
+
 figure
-imagesc(count)
+imagesc(rot90(count(:,:,7)', 2))
+axis equal
 colormap jet
 colorbar
 
@@ -146,5 +170,24 @@ if status == 0
 else
     error('Failed to execute tckinfo command.');
 end
+
+end
+
+
+%%
+function LOI = labels_of_interest()
+
+brainRegions={'caudalanteriorcingulate', 'rostralanteriorcingulate',  'posteriorcingulate' ,  'lateralorbitofrontal', ...
+    'medialorbitofrontal' , 'caudalmiddlefrontal'  ,  'rostralmiddlefrontal' ,'frontalpole' , 'insula' , 'Thalamus', 'Caudate', 'Putamen', 'Pallidum', 'Amygdala'}; %, 'Accumbens'};
+
+[labels, names, ~] = xlsread('util/FS_default_labels.xlsx');
+
+matching = false(size(labels));
+
+for n = 1 : length(brainRegions)
+    matching = matching | contains(lower(string(names(:, 2))), lower(brainRegions{n}));
+end
+
+LOI = labels(matching);
 
 end
