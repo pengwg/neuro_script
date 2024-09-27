@@ -3,16 +3,17 @@ close all
 
 cores = 10;
 
-data_path = '/home/pw0032/Work/fusOUD/FUS-RCT/';
-subject = 'sub-011-RCT';
-session = 'ses-1-00';
-output = '~/Nextcloud/Study/FUS-RCT/RCT11_01/tck_count_inc';
+data_path = '/home/peng/Work/fusOUD/FUS';
+subject = 'sub-221-FUS';
+session = 'ses-30';
+session_ref = 'ses-00';
+output_path = '~/Nextcloud/Study/fusOUD/OUD221/';
 
-target_AC0 = [ 10, 4, 1, 1;
-              -10, 4, 1, 1];
+target_AC0 = [ 10, 4, -1, 1;
+              -10, 4, -1, 1];
 r = 0.7;
 
-D = 4;
+D = 8;
 
 
 mrtrix_path = fullfile(data_path, subject, session, 'dwi', 'mrtrix3');
@@ -24,12 +25,12 @@ if ~isfolder(mrtrix_path)
 end
 
 % Always use the reference volume and seed files from ses-1-00
-if isfolder(fullfile(data_path, subject, 'ses-1-00', 'anat'))
-    ref_nii = dir(fullfile(data_path, subject, 'ses-1-00', 'anat', [subject, '_ses-1-00_AC.nii*']));
+if isfolder(fullfile(data_path, subject, session_ref, 'anat'))
+    ref_nii = dir(fullfile(data_path, subject, session_ref, 'anat', [subject, '_', session_ref, '_AC.nii*']));
 end
 
 if isempty(ref_nii)
-    fprintf([subject, '_ses-1-00_AC.nii(.gz) not found.\n']);
+    fprintf([subject, '_ses-00_AC.nii(.gz) not found.\n']);
     return;
 end
 
@@ -57,7 +58,7 @@ AC2dwi_transform = ea_antsmat2mat(AC2dwi_transform_data.AffineTransform_double_3
                                      AC2dwi_transform_data.fixed);
 
 
-[X, Y, Z] = meshgrid(-20:1:20, -3:1:10, -8:1:10);
+[X, Y, Z] = meshgrid(-25:1:25, -10:1:15, -15:1:15);
 count = zeros(size(X));
 count_i = 1 : length(count(:));
 
@@ -69,14 +70,12 @@ count_i = count_i(NAc);
 target_AC = [X(NAc), Y(NAc), Z(NAc), ones(size(X(NAc)))];
 target_dwi = target_AC * AC2dwi_transform';
 
-if ~isfile([targeting_path '/include_spec.nii'])
-    LOI = labels_of_interest();
-    parcels_info = niftiinfo([mrtrix_path '/fs_parcels_coreg.nii.gz']);
-    parcels_vol = niftiread(parcels_info);
-    parcels_vol(~ismember(parcels_vol, LOI)) = 0;
-    parcels_vol(ismember(parcels_vol, LOI)) = 1;
-    niftiwrite(parcels_vol, [targeting_path '/include_spec'], parcels_info);
-end
+LOI = labels_of_interest();
+parcels_info = niftiinfo([mrtrix_path '/fs_parcels_coreg.nii.gz']);
+parcels_vol = niftiread(parcels_info);
+parcels_vol(~ismember(parcels_vol, LOI)) = 0;
+parcels_vol(ismember(parcels_vol, LOI)) = 1;
+niftiwrite(parcels_vol, [targeting_path '/include_spec'], parcels_info);
 
 for k = 1 : length(X(NAc))
     x0 = target_AC(k, 1);
@@ -104,7 +103,11 @@ ref_info.Transform.T = eye(4);
 ref_info.ImageSize = size(count);
 ref_info.Transform.T(4, 1:3) = [X(1) Y(1) Z(1)];
 
-niftiwrite(int16(count), output, ref_info);
+if ~isfolder(output_path)
+    mkdir(output_path);
+end
+
+niftiwrite(int16(count), [output_path, 'tck_count_30_L'], ref_info);
 
 figure
 imagesc(rot90(count(:,:,7)', 2))
@@ -177,8 +180,9 @@ end
 %%
 function LOI = labels_of_interest()
 
-brainRegions={'caudalanteriorcingulate', 'rostralanteriorcingulate',  'posteriorcingulate' ,  'lateralorbitofrontal', ...
-    'medialorbitofrontal' , 'caudalmiddlefrontal'  ,  'rostralmiddlefrontal' ,'frontalpole' , 'insula' , 'Thalamus', 'Caudate', 'Putamen', 'Pallidum', 'Amygdala'}; %, 'Accumbens'};
+% brainRegions={'caudalanteriorcingulate', 'rostralanteriorcingulate',  'posteriorcingulate' ,  'lateralorbitofrontal', ...
+%     'medialorbitofrontal' , 'caudalmiddlefrontal'  ,  'rostralmiddlefrontal' ,'frontalpole' , 'insula' , 'Thalamus', 'Caudate', 'Putamen', 'Pallidum', 'Amygdala'}; %, 'Accumbens'};
+brainRegions={'insula'};
 
 [labels, names, ~] = xlsread('util/FS_default_labels.xlsx');
 
