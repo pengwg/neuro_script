@@ -6,12 +6,12 @@ num_seeds = '10k';
 
 data_path = '~/Work/fusOUD/FUS/';
 mask_path = '~/Nextcloud/Study/fusOUD/Treatment_Masks';
-subject = 'sub-224-FUS';
-session = 'ses-00';
+subject = 'sub-221-FUS';
+session = 'ses-07';
 
 
 mrtrix_path = fullfile(data_path, subject, session, 'dwi', 'mrtrix3');
-targeting_path = fullfile(mrtrix_path, 'mask_to_ROIs');
+targeting_path = fullfile(mrtrix_path, 'mask_to_nodes');
 
 if ~isfolder(mrtrix_path)
     fprintf([subject, '/', session, ' run mrtrix first.\n']);
@@ -35,11 +35,11 @@ end
 % Register the ref volume to T1_FS_coreg.nii.gz
 % anat2dwi_0GenericAffine.mat and anat2dwi_Warped.nii.gz will be produced
 if ~isfile([targeting_path '/anat2dwi_0GenericAffine.mat'])
-    system(['antsRegistrationSyNQuick.sh -d 3 -t r -f ' mrtrix_path '/T1_FS_coreg.nii.gz -m ', ref_nii_file, ' -o ' targeting_path '/anat2dwi_ -n ', num2str(cores)]);
+    system(['antsRegistrationSyNQuick.sh -d 3 -t r -f ' mrtrix_path '/T1_FS_coreg.nii.gz -m ', ref_nii_file, ' -o ' targeting_path '/maskref2dwi_ -n ', num2str(cores)]);
 end
 
-apply_rigid_transform(mask_nac_left, [targeting_path '/mask_NAc_left_dwi'], [targeting_path '/anat2dwi_0GenericAffine.mat'])
-apply_rigid_transform(mask_nac_right, [targeting_path '/mask_NAc_right_dwi'], [targeting_path '/anat2dwi_0GenericAffine.mat'])
+apply_rigid_transform(mask_nac_left, [targeting_path '/mask_NAc_left_dwi'], [targeting_path '/maskref2dwi_0GenericAffine.mat'])
+apply_rigid_transform(mask_nac_right, [targeting_path '/mask_NAc_right_dwi'], [targeting_path '/maskref2dwi_0GenericAffine.mat'])
 
 [Labels, Names] = labels_of_interest();
 
