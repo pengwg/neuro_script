@@ -13,9 +13,9 @@
 cores=10
 
 # Absolute or relative path of the data folder to where the script located
-data_path=/home/peng/Work/fusOUD/FUS-RCT/
-subject=sub-006-RCT
-session=ses-1-00
+data_path=/media/dgt00003/dgytl/FUS
+subject=sub-224-FUS
+session=ses-00
 
 num_tracks=1k
 
@@ -46,8 +46,8 @@ fi
 printf "\n${GREEN}Entering $data_path/$subject/$session/dwi/mrtrix3/...$NC\n"
 
 # Always use the reference volume and seed files from ses-00
-if [ -d "../../../ses-1-00/anat" ]; then
-    REF_nii=$(find ../../../ses-1-00/anat \( -name "${subject}_ses-00_$ref_type.nii" -o -name "${subject}_ses-1-00_$ref_type.nii.gz" \) | head -n 1)
+if [ -d "$data_path/$subject/ses-00/anat" ]; then
+    REF_nii=$(find $data_path/$subject/ses-00/anat \( -name "${subject}_ses-00_$ref_type.nii" -o -name "${subject}_ses-00_$ref_type.nii.gz" \) | head -n 1)
 fi
 
 if [ -z "$REF_nii" ]; then
@@ -114,7 +114,7 @@ while IFS=',' read -r x0 y0 z0 r0 label comment <&3 && IFS=',' read -r x y z r l
     tckgen -act ../5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r ../wmfod_norm.mif \
            "tracks_${num_tracks}_${ref_type}_${x0_rounded}_${y0_rounded}_${z0_rounded}_RAS_${x}_${y}_${z}.tck" \
            -nthreads $cores -force \
-           -cutoff 0.05 -maxlength 250 -step 0.5 -crop_at_gmwmi -seeds 4000
+           -cutoff 0.08 -maxlength 250 -step 0.5 -crop_at_gmwmi -force
 done
 
 # Close the file descriptors
