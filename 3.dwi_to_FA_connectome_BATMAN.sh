@@ -41,6 +41,9 @@ data_path="$external_drive/$relative_folder_path"
 # Absolute or relative path of the data folder to where the script located
 # data_path=FUS/
 
+num_tracks=10M
+
+
 # Set to 0 to disable quality control popup
 QC=0
 
@@ -303,25 +306,22 @@ do
     
     chmod a+x *
     
-    if ! [ -f "tracks_10M.tck" ]; then
-        tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select 10000k wmfod_norm.mif tracks_10M.tck -nthreads $cores
+# Tracks generation
+    if ! [ -f "tracks_${num_tracks}.tck" ]; then
+        tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select ${num_tracks} wmfod_norm.mif tracks_${num_tracks}.tck -nthreads $cores
         
         # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
-            rm tracks_10M.tck
+            rm tracks_${num_tracks}.tck
             exit 1
         fi
     fi
-    # tckedit tracks_10M.tck -number 200k smallerTracks_200k.tck -force
 
     # mrview ${sub_name}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
-    if ! [ -f "sift_1M.tck" ]; then
-        tcksift -act 5tt_coreg.mif -term_number 1M tracks_10M.tck wmfod_norm.mif sift_1M.tck -nthreads $cores -force
-    fi
-
-    if ! [ -f "sift_10M.txt" ]; then
-        tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt tracks_10M.tck wmfod_norm.mif sift_10M.txt -nthreads $cores -force
-        tckedit tracks_10M.tck -number 200k smallerTracts_200k.tck
+    if ! [ -f "sift_${num_tracks}.txt" ]; then
+        # tcksift -act 5tt_coreg.mif -term_number 100k tracks_${num_tracks}.tck wmfod_norm.mif sift_${num_tracks}.tck -nthreads $cores
+        tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt tracks_${num_tracks}.tck wmfod_norm.mif sift_${num_tracks}.txt -nthreads $cores
+        tckedit tracks_${num_tracks}.tck -number 200k smallerTracts_200k.tck
     fi
             
     if ! [ $QC -eq 0 ]; then
@@ -337,31 +337,31 @@ do
  
                      
     # Connectome with individual freesurfer atlas regions
-    if ! [ -f "${sub_name}_10M_connectome.csv" ]; then
+    if ! [ -f "${sub_name}_${num_tracks}_connectome.csv" ]; then
         labelconvert aparc+aseg_coreg.nii.gz \
                      $FREESURFER_HOME/FreeSurferColorLUT.txt \
                      $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
                      fs_parcels_coreg.nii.gz -force
                      
         tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
-                       -tck_weights_in sift_10M.txt tracks_10M.tck fs_parcels_coreg.nii.gz \
-                       ${sub_name}_10M_connectome.csv \
-                       -out_assignment ${sub_name}_10M_connectome_assignments.csv
+                       -tck_weights_in sift_${num_tracks}.txt tracks_${num_tracks}.tck fs_parcels_coreg.nii.gz \
+                       ${sub_name}_${num_tracks}_connectome.csv \
+                       -out_assignment ${sub_name}_${num_tracks}_connectome_assignments.csv
     fi
     
-    # Connectome scaled with mean FA
-    if ! [ -f "${sub_name}_meanFA_10M_connectome.csv" ]; then 
+    # Connectome scaled by mean FA
+    if ! [ -f "${sub_name}_meanFA_${num_tracks}_connectome.csv" ]; then 
         # Computing fractional anisotropy of full 10M track file
         dwi2tensor ${sub_name}_den_unr_preproc_unbiased.mif tensor.mif -force -nthreads $cores
         tensor2metric tensor.mif -fa FA.mif -force -nthreads $cores  
 
         # Computing the mean FA of tracks 
-        tcksample tracks_10M.tck FA.mif tracks_meanFA_10M.csv -stat_tck mean -force -nthreads $cores 
+        tcksample  tracks_${num_tracks}.tck FA.mif tracks_meanFA_${num_tracks}.csv -nthreads $cores -stat_tck mean -force 
    
         tck2connectome -symmetric -zero_diagonal \
-                       -tck_weights_in sift_10M.txt tracks_10M.tck fs_parcels_coreg.nii.gz \
-                       ${sub_name}_meanFA_10M_connectome.csv \
-                       -scale_file tracks_meanFA_10M.csv -stat_edge mean -force 
+                       -tck_weights_in sift_${num_tracks}.txt tracks_${num_tracks}.tck fs_parcels_coreg.nii.gz \
+                       ${sub_name}_meanFA_${num_tracks}_connectome.csv \
+                       -scale_file tracks_meanFA_${num_tracks}.csv -stat_edge mean -force 
     fi
     
     chmod a+x *
