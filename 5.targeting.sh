@@ -13,7 +13,7 @@
 cores=10
 
 # Absolute or relative path of the data folder to where the script located
-data_path=/home/pw0032/Work/fusOUD/FUS-RCT/
+data_path=/home/peng/Work/fusOUD/FUS-RCT/
 subject=sub-006-RCT
 session=ses-1-00
 
@@ -103,16 +103,16 @@ while IFS=',' read -r x0 y0 z0 r0 label comment <&3 && IFS=',' read -r x y z r l
     x0=$(echo "$x0 * -1" | bc)
     y0=$(echo "$y0 * -1" | bc)
     
-    # Use rounded integers in the output filenames
-    xint=$(echo $x | awk '{print int($1+0.5)}')
-    yint=$(echo $y | awk '{print int($1+0.5)}')
-    zint=$(echo $z | awk '{print int($1+0.5)}')
+    # Use rounded number in the output filenames
+    x_rounded=$(echo $x | awk '{printf "%.1f", $1}')
+    y_rounded=$(echo $y | awk '{printf "%.1f", $1}')
+    z_rounded=$(echo $z | awk '{printf "%.1f", $1}')
     
     # Pierre suggested command line
     # tckgen -act {data_dir}/5tt_coreg_MNI.nii -backtrack -seed_dynamic {data_dir}/wmfod_norm_MNI.nii -nthreads 30 -cutoff 0.06 -maxlength 250 -step 0.5 -select 100M {data_dir}/wmfod_norm_MNI.nii {data_dir}/tracks_MNI_100M.tck -crop_at_gmwmi
 
     tckgen -act ../5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r ../wmfod_norm.mif \
-           "tracks_${num_tracks}_${ref_type}_${x0}_${y0}_${z0}_RAS_${xint}_${yint}_${zint}.tck" \
+           "tracks_${num_tracks}_${ref_type}_${x0}_${y0}_${z0}_RAS_${x_rounded}_${y_rounded}_${z_rounded}.tck" \
            -nthreads $cores -force \
            -cutoff 0.05 -maxlength 250 -step 0.5 -crop_at_gmwmi -seeds 4000
 done
