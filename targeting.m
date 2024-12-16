@@ -5,22 +5,23 @@ cores = 10;
 
 data_path = '/home/peng/Work/fusOUD/FUS';
 subject = 'sub-221-FUS';
-session = 'ses-30';
+session = 'ses-07';
 session_ref = 'ses-00';
 output_path = '~/Nextcloud/Study/fusOUD/OUD221/';
 
+[X, Y, Z] = meshgrid(-25:1:25, -10:1:15, -15:1:15);
 target_AC0 = [ 10, 4, -1, 1;
               -10, 4, -1, 1];
 r = 0.7;
 
-D = 8;
+D = 4;
 
 
 mrtrix_path = fullfile(data_path, subject, session, 'dwi', 'mrtrix3');
 targeting_path = fullfile(mrtrix_path, 'targeting_tracks_ACPC');
 
 if ~isfolder(mrtrix_path)
-    fprintf([subject, '/', session, ' run mrtrix first.\n']);
+    fprintf([data_path, '/', subject, '/', session, ' run mrtrix first.\n']);
     return;
 end
 
@@ -57,15 +58,13 @@ AC2dwi_transform_data = load([targeting_path '/AC2dwi_0GenericAffine.mat']);
 AC2dwi_transform = ea_antsmat2mat(AC2dwi_transform_data.AffineTransform_double_3_3, ...
                                      AC2dwi_transform_data.fixed);
 
-
-[X, Y, Z] = meshgrid(-25:1:25, -10:1:15, -15:1:15);
-count = zeros(size(X));
-count_i = 1 : length(count(:));
+SUM = single(zeros(size(X)));
+SUM_i = 1 : length(SUM(:));
 
 NAc1 = abs(X(:) - target_AC0(1, 1)) <= D & abs(Y(:) - target_AC0(1, 2)) <= D & abs(Z(:) - target_AC0(1, 3)) <= D;
 NAc2 = abs(X(:) - target_AC0(2, 1)) <= D & abs(Y(:) - target_AC0(2, 2)) <= D & abs(Z(:) - target_AC0(2, 3)) <= D;
 NAc = NAc1 | NAc2;
-count_i = count_i(NAc);
+SUM_i = SUM_i(NAc);
 
 target_AC = [X(NAc), Y(NAc), Z(NAc), ones(size(X(NAc)))];
 target_dwi = target_AC * AC2dwi_transform';
@@ -86,31 +85,55 @@ for k = 1 : length(X(NAc))
     y = target_dwi(k, 2);
     z = target_dwi(k, 3);
 
-    tck_file = sprintf('%s/seeds_1000_AC_%d_%d_%d_RAS_%d_%d_%d.tck', targeting_path, x0, y0, z0, round(x), round(y), round(z));
+    % tck_file = sprintf('%s/seeds_1000_AC_%d_%d_%d_RAS_%d_%d_%d.tck', targeting_path, x0, y0, z0, round(x), round(y), round(z));
+    tck_file = sprintf('%s/select_100_AC_%d_%d_%d_RAS_%d_%d_%d.tck', targeting_path, x0, y0, z0, round(x), round(y), round(z));
+
+    disp(['Compute ', tck_file, '...'])
     if ~isfile(tck_file)
-        disp(['Compute ', tck_file, '...'])
-        cmd = sprintf('tckgen -act %s/5tt_coreg.mif -backtrack -include %s/include_spec.nii -seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -nthreads %d -force -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi -seeds 1000 -quiet', ...
+        % cmd = sprintf('tckgen -act %s/5tt_coreg.mif -backtrack -include %s/include_spec.nii -seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -nthreads %d -force -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi -seeds 1000 -quiet', ...
+        %     mrtrix_path, targeting_path, x, y, z, r, mrtrix_path, tck_file, cores);
+        cmd = sprintf('tckgen -act %s/5tt_coreg.mif -backtrack -include %s/include_spec.nii -seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -nthreads %d -force -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi -select 100 -quiet', ...
             mrtrix_path, targeting_path, x, y, z, r, mrtrix_path, tck_file, cores);
+
         system(cmd);
     end
-    count(count_i(k)) = count_tracks(tck_file);
+    
+    num_tracks = count_tracks(tck_file);
+    fprintf('num_tracks = %d\n', num_tracks);
+
+    sift_file = sprintf('%s/sift2_select_100_AC_%d_%d_%d_RAS_%d_%d_%d.txt', targeting_path, x0, y0, z0, round(x), round(y), round(z));
+    disp(['Compute ', sift_file, '...'])
+
+    if num_tracks > 1
+        if ~isfile(sift_file)
+            cmd = sprintf('tcksift2 -act %s/5tt_coreg.mif %s %s/wmfod_norm.mif %s -quiet -force -nthreads %d', mrtrix_path, tck_file, mrtrix_path, sift_file, cores);
+            system(cmd);
+        end        
+        sift_sum = sift2_weights_sum(sift_file);
+    else
+        sift_sum = 0;
+    end
+ 
+    fprintf('sift_sum = %d\n\n', sift_sum);
+    SUM(SUM_i(k)) = sift_sum;
 end
-count = permute(count, [2, 1, 3]);
+SUM = permute(SUM, [2, 1, 3]);
 
 ref_info = niftiinfo(ref_nii_file);
+ref_info.Datatype = 'single';
 ref_info.PixelDimensions = [1, 1, 1];
 ref_info.Transform.T = eye(4);
-ref_info.ImageSize = size(count);
+ref_info.ImageSize = size(SUM);
 ref_info.Transform.T(4, 1:3) = [X(1) Y(1) Z(1)];
 
 if ~isfolder(output_path)
     mkdir(output_path);
 end
 
-niftiwrite(int16(count), [output_path, 'tck_count_30_L'], ref_info);
+niftiwrite(SUM, [output_path, 'tck_sift_07'], ref_info);
 
 figure
-imagesc(rot90(count(:,:,7)', 2))
+imagesc(rot90(SUM(:,:,7)', 2))
 axis equal
 colormap jet
 colorbar
@@ -193,5 +216,23 @@ for n = 1 : length(brainRegions)
 end
 
 LOI = labels(matching);
+
+end
+
+%%
+function sift_sum = sift2_weights_sum(sift_file)
+
+
+fileID = fopen(sift_file, 'r');
+
+% Skip the first line (header line)
+fgetl(fileID);  
+secondLine = fgetl(fileID);
+
+fclose(fileID);
+
+values = str2double(strsplit(secondLine));
+
+sift_sum = sum(values);
 
 end
