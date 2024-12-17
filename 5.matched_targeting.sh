@@ -13,9 +13,9 @@
 cores=15
 
 # Absolute or relative path of the data folder to where the script located
-data_path=/home/peng/Work/fusOUD/FUS-RCT/
-subject=sub-006-RCT
-session=ses-1-00
+data_path=/media/dgt00003/dgytl/FUS
+subject=sub-224-FUS
+session=ses-00
 
 num_tracks=10M
 radius=3
