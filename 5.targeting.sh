@@ -125,7 +125,7 @@ while IFS=',' read -r x0 y0 z0 r0 label comment <&3 && IFS=',' read -r x y z r l
     z_rounded=$(echo $z | awk '{printf "%.1f", $1}')
 
            
-    tckgen -act ../5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r ../wmfod_norm.mif \
+    tckgen -act ../5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r -select $num_tracks ../wmfod_norm.mif \
            "tracks_${num_tracks}_${ref_type}_${x0}_${y0}_${z0}_RAS_${x_rounded}_${y_rounded}_${z_rounded}.tck" \
            -nthreads $cores -force \
            -cutoff 0.08 -maxlength 250 -step 0.5 -crop_at_gmwmi -force
