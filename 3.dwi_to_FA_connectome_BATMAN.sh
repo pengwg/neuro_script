@@ -28,28 +28,16 @@
 
 cores=18
 
-# Define external drive mount point you need these nest lines in all your scripts!!
-external_drive="/media/dgt00003/dgytl"
-
-# Define folder path and list of sessions
-#TO EDIT DEPENDING ON FOLDER
-relative_folder_path="CPO"
-
-# Construct the complete folder path
-data_path="$external_drive/$relative_folder_path"
-
 # Absolute or relative path of the data folder to where the script located
-# data_path=FUS/
+data_path=/mnt/msi/Data/naviFUS
 
 num_tracks=10M
-
 
 # Set to 0 to disable quality control popup
 QC=0
 
 # Freesurfer subject path
-SUBJECTS_DIR=/media/dgt00003/dgytl/FS
-
+SUBJECTS_DIR=/mnt/msi/Data/FS
 
 #---------------------------------------------------------------------------
 
@@ -75,12 +63,11 @@ do
     if ! [ -d mrtrix3 ]; then
         mkdir mrtrix3
     fi
-    
-    chmod a+x *
+
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
     sub_dwi_nii=$(ls *HIGH_RES*.nii* | head -n 1)
     if [ -z "$sub_dwi_nii" ]; then
-        echo -e "${YELLOW}DWI files not found in ${sessions_dir[$n]}.$NC" | tee -a "$data_path/script4BATMAN_log.txt"
+        echo -e "${YELLOW}DWI files not found in ${sessions_dir[$n]}.$NC"
         cd $basedir
         continue
     fi
@@ -105,7 +92,6 @@ do
     done
     
     cd mrtrix3
-    chmod a+x *
     
 # Denoise and degibbs
     if ! [ -f "${sub_name}_den.mif" ]; then
@@ -118,8 +104,6 @@ do
         fi
         mrcalc $sub_name.mif  ${sub_name}_den.mif -subtract residual.mif -force
     fi
-    
-    chmod a+x *
     
     if ! [ -f "${sub_name}_den_unr.mif" ]; then
         mrdegibbs ${sub_name}_den.mif ${sub_name}_den_unr.mif -nthreads $cores -force
@@ -227,12 +211,6 @@ do
     
     echo -e "${GREEN}${sessions_dir[$n]} FOD done.$NC"
     
-    note="${sessions_dir[$n]} FOD done.$NC  $(date '+%Y-%m-%d %H:%M')"
-    echo -e "$note" >> $data_path/script4BATMAN_log.txt
-
-    chmod a+x *
-    
-
 # Run DTIFIT with weighted least squares
     if ! [ -f "${sub_name}_dti_V1.nii.gz" ]; then
         dtifit -k ${sub_name}_den_unr_preproc_unbiased.nii.gz \
@@ -244,27 +222,20 @@ do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} DTI done.$NC"
-    note="${sessions_dir[$n]} DTI done.$NC $(date '+%Y-%m-%d %H:%M')"
-    echo -e "$note" >> "$data_path/script4BATMAN_log.txt"
    
-
 
 # ----------------- Anatomically Constrained Tractography ---------------------
 
-
-
-    fs_subject="FS_$sub_name"
     
-    if ! [ -f "$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz" ]; then
-        echo -e "${YELLOW}$SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz not found.$NC ******" >> $data_path/script4BATMAN_log.txt
-        cd $basedir
+    if ! [ -f "$SUBJECTS_DIR/$sub_name/mri/aparc+aseg.mgz" ]; then
+        echo -e "${YELLOW}$SUBJECTS_DIR/$sub_name/mri/aparc+aseg.mgz not found.$NC ******"
         continue
     fi
     
 # Register freesurfer segmentation to dwi mean_b0
     if ! [ -f "aparc+aseg_coreg.nii.gz" ]; then
-        mri_convert $SUBJECTS_DIR/$fs_subject/mri/T1.mgz T1_FS.nii.gz
-        mri_convert $SUBJECTS_DIR/$fs_subject/mri/aparc+aseg.mgz aparc+aseg.nii.gz
+        mri_convert $SUBJECTS_DIR/$sub_name/mri/T1.mgz T1_FS.nii.gz
+        mri_convert $SUBJECTS_DIR/$sub_name/mri/aparc+aseg.mgz aparc+aseg.nii.gz
         
         dwiextract ${sub_name}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
@@ -304,8 +275,6 @@ do
         5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif -nthreads $cores -force
     fi
     
-    chmod a+x *
-    
 # Tracks generation
     if ! [ -f "tracks_${num_tracks}.tck" ]; then
         tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select ${num_tracks} wmfod_norm.mif tracks_${num_tracks}.tck -nthreads $cores
@@ -329,9 +298,6 @@ do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} ACT done.$NC"
-    note="${sessions_dir[$n]} ACT done.$NC  $(date '+%Y-%m-%d %H:%M')"
-    echo -e "$note" >> $basedir/script4BATMAN_log.txt
-
 
 # ----------------- Connectome from freesurfer parcels -----------------------
  
@@ -363,16 +329,9 @@ do
                        ${sub_name}_meanFA_${num_tracks}_connectome.csv \
                        -scale_file tracks_meanFA_${num_tracks}.csv -stat_edge mean -force 
     fi
-    
-    chmod a+x *
-    
-    note="${sessions_dir[$n]} connectome done.$NC  $(date '+%Y-%m-%d %H:%M')" 
-    echo -e "$note" >> $basedir/script4BATMAN_log.txt
+   
    
     echo -e "${YELLOW}${BOLD}All done for ${sessions_dir[$n]}.$NC  $(date '+%Y-%m-%d %H:%M')" 
-
-    note="All done for ${sessions_dir[$n]}.$NC  $(date '+%Y-%m-%d %H:%M')"
-    echo -e "$note" >> $basedir/script4BATMAN_log.txt
 
     cd $basedir
 done
