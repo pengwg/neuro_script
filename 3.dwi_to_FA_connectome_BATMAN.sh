@@ -256,9 +256,11 @@ do
     fi
     
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
-    if ! [ -f "5tt_coreg.mif" ]; then
-        # '5ttgen freesurfer' will invoke labelconvert by itself  
-        5ttgen freesurfer aparc+aseg_coreg.nii.gz 5tt_coreg.mif -nthreads $cores
+    if ! [ -f "5tt_coreg_hsvs.mif" ]; then
+        5ttgen hsvs $SUBJECTS_DIR/$sub_name 5tt_hsvs.mif -nthreads $cores
+        mrconvert 5tt_hsvs.mif 5tt_hsvs.nii.gz -force
+        matlab -batch "addpath('$basedir'); apply_rigid_transform('5tt_hsvs.nii.gz', '5tt_coreg_hsvs.nii.gz', 'FS2dwi_0GenericAffine.mat')"
+        mrconvert 5tt_coreg_hsvs.nii.gz 5tt_coreg_hsvs.mif -force
         
         # Continue script if 5ttgen failed
         if ! [ $? -eq 0 ]; then
@@ -268,16 +270,16 @@ do
     fi
     
     if ! [ $QC -eq 0 ]; then
-        mrview T1_FS_coreg.nii.gz -overlay.load 5tt_coreg.mif &
+        mrview T1_FS_coreg.nii.gz -overlay.load 5tt_coreg_hsvs.mif &
     fi
     
     if ! [ -f "gmwmSeed_coreg.mif" ]; then
-        5tt2gmwmi 5tt_coreg.mif gmwmSeed_coreg.mif -nthreads $cores -force
+        5tt2gmwmi 5tt_coreg_hsvs.mif gmwmSeed_coreg.mif -nthreads $cores -force
     fi
     
 # Tracks generation
     if ! [ -f "tracks_${num_tracks}.tck" ]; then
-        tckgen -act 5tt_coreg.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select ${num_tracks} wmfod_norm.mif tracks_${num_tracks}.tck -nthreads $cores
+        tckgen -act 5tt_coreg_hsvs.mif -backtrack -seed_gmwmi gmwmSeed_coreg.mif -select ${num_tracks} wmfod_norm.mif tracks_${num_tracks}.tck -nthreads $cores
         
         # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
@@ -289,7 +291,7 @@ do
     # mrview ${sub_name}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
     if ! [ -f "sift_${num_tracks}.txt" ]; then
         # tcksift -act 5tt_coreg.mif -term_number 100k tracks_${num_tracks}.tck wmfod_norm.mif sift_${num_tracks}.tck -nthreads $cores
-        tcksift2 -act 5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt tracks_${num_tracks}.tck wmfod_norm.mif sift_${num_tracks}.txt -nthreads $cores
+        tcksift2 -act 5tt_coreg_hsvs.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt tracks_${num_tracks}.tck wmfod_norm.mif sift_${num_tracks}.txt -nthreads $cores
         tckedit tracks_${num_tracks}.tck -number 200k smallerTracts_200k.tck
     fi
             
@@ -313,6 +315,7 @@ do
                        -tck_weights_in sift_${num_tracks}.txt tracks_${num_tracks}.tck fs_parcels_coreg.nii.gz \
                        ${sub_name}_${num_tracks}_connectome.csv \
                        -out_assignment ${sub_name}_${num_tracks}_connectome_assignments.csv
+        tckstats tracks_${num_tracks}.tck -dump lengths.txt
     fi
     
     # Connectome scaled by mean FA
