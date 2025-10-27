@@ -13,12 +13,11 @@
 cores=10
 
 # Absolute or relative path of the data folder to where the script located
-data_path=/media/dgt00003/dgytl/FUS
-subject=sub-224-FUS
+data_path=/mnt/msi/Data/naviFUS
+subject=sub-009-NAVI
 session=ses-00
 
 num_tracks=1k
-
 
 
 # Using target_seeds_${seeds_tag}.csv
@@ -47,20 +46,18 @@ fi
 
 printf "\n${GREEN}Entering $subject/$session/dwi/mrtrix3/...$NC\n"
 
-chmod a+x *
-
 # Always use the reference volume and seed files from ses-00
 if [ -d "$data_path/$subject/ses-00/anat" ]; then
     REF_nii=$(find $data_path/$subject/ses-00/anat \( -name "${subject}_ses-00_$ref_type.nii" -o -name "${subject}_ses-00_$ref_type.nii.gz" \) | head -n 1)
 fi
 
 if [ -z "$REF_nii" ]; then
-    echo -e "${YELLOW}${subject}_ses-1-00_$ref_type.nii(.gz) not found.$NC"
+    echo -e "${YELLOW}${subject}_ses-00_$ref_type.nii(.gz) not found.$NC"
     exit 1
 fi
 
-if ! [ -f "$data_path_abs/target_seeds_${seeds_tag}.csv" ]; then
-    echo -e "${YELLOW}$data_path_abs/target_seeds_${seeds_tag}.csv not found.$NC"
+if ! [ -f "$data_path_abs/$subject/$session/target_seeds_${seeds_tag}.csv" ]; then
+    echo -e "${YELLOW}$data_path_abs/$subject/$session/target_seeds_${seeds_tag}.csv not found.$NC"
     exit 1
 fi
 
@@ -70,17 +67,6 @@ if ! [ -f "T1_FS_coreg.nii.gz" ]; then
     exit 1
 fi
 
-#mkdir targeting
-#cd targeting
-
-    # Pierre suggested command line
- 	#if ! [ -f "targetTracks_100M.tck" ]; then
-       #    tckgen -act ../5tt_coreg.mif -backtrack -seed_dynamic ../wmfod_norm.mif -nthreads $cores -cutoff 0.06 -maxlength 250 -step 0.5 -select 100M ../wmfod_norm.mif targetingTracks_100M.tck -crop_at_gmwmi
-        #   fi
-
-   # if ! [ -f "targetsift_10M.txt" ]; then
-    #    tcksift2 -act ../5tt_coreg.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt targetingTracks_100M.tck ../wmfod_norm.mif targetsift_10M.txt -nthreads $cores -force
-   # fi
 
 if ! [ -d "targeting_tracks_${seeds_tag}" ]; then
     mkdir targeting_tracks_${seeds_tag}
@@ -125,7 +111,7 @@ while IFS=',' read -r x0 y0 z0 r0 label comment <&3 && IFS=',' read -r x y z r l
     z_rounded=$(echo $z | awk '{printf "%.1f", $1}')
 
            
-    tckgen -act ../5tt_coreg.mif -backtrack -seed_sphere $x,$y,$z,$r -select $num_tracks ../wmfod_norm.mif \
+    tckgen -act ../5tt_coreg_hsvs.mif -backtrack -seed_sphere $x,$y,$z,$r -select $num_tracks ../wmfod_norm.mif \
            "tracks_${num_tracks}_${ref_type}_${x0}_${y0}_${z0}_RAS_${x_rounded}_${y_rounded}_${z_rounded}.tck" \
            -nthreads $cores -force \
            -cutoff 0.08 -maxlength 250 -step 0.5 -crop_at_gmwmi -force
@@ -135,8 +121,6 @@ done
 # Close the file descriptors
 exec 3<&-
 exec 4<&-
-
-chmod a+x *
 
 mrview $data_path/$subject/$session/dwi/mrtrix3/T1_FS_coreg.mif &
 

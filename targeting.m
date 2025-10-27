@@ -10,8 +10,8 @@ session_ref = 'ses-00';
 output_path = '~/Nextcloud/Study/fusOUD/OUD221/';
 
 [X, Y, Z] = meshgrid(-25:1:25, -10:1:15, -15:1:15);
-target_AC0 = [ 10, 4, -1, 1;
-              -10, 4, -1, 1];
+target_AC0 = [ 9.5, 5, -1, 1;
+              -9.5, 5, -1, 1];
 r = 0.7;
 
 D = 4;
@@ -92,7 +92,7 @@ for k = 1 : length(X(NAc))
     if ~isfile(tck_file)
         % cmd = sprintf('tckgen -act %s/5tt_coreg.mif -backtrack -include %s/include_spec.nii -seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -nthreads %d -force -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi -seeds 1000 -quiet', ...
         %     mrtrix_path, targeting_path, x, y, z, r, mrtrix_path, tck_file, cores);
-        cmd = sprintf('tckgen -act %s/5tt_coreg.mif -backtrack -include %s/include_spec.nii -seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -nthreads %d -force -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi -select 100 -quiet', ...
+        cmd = sprintf('tckgen -act %s/5tt_coreg_hsvs.mif -backtrack -include %s/include_spec.nii -seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -nthreads %d -force -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi -select 100 -quiet', ...
             mrtrix_path, targeting_path, x, y, z, r, mrtrix_path, tck_file, cores);
 
         system(cmd);
