@@ -26,10 +26,10 @@
 
 #---------------------  User's variables to be modified ---------------------
 
-cores=18
+cores=12
 
 # Absolute or relative path of the data folder to where the script located
-data_path=/mnt/msi/Data/naviFUS
+data_path=/home/pw0032/Data/FUS-RCT/sub-018-RCT/ses-2-00
 
 num_tracks=10M
 
@@ -37,7 +37,7 @@ num_tracks=10M
 QC=0
 
 # Freesurfer subject path
-SUBJECTS_DIR=/mnt/msi/Data/FS
+# SUBJECTS_DIR=/mnt/msi/Data/FS
 
 #---------------------------------------------------------------------------
 
@@ -77,7 +77,6 @@ do
     IFS='/' read -ra parts <<< ${sessions_dir[$n]}
     N=${#parts[@]}
     sub_name="${parts[N-3]}_${parts[N-2]}"
-    sub_name_ses_00="${parts[N-3]}_ses-00"
         
     if ! [ -f "mrtrix3/$sub_name.mif" ]; then
         mrconvert $sub_dwi_nii mrtrix3/$sub_name.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
@@ -249,6 +248,11 @@ do
         matlab -batch "addpath('$basedir'); apply_rigid_transform('T1_FS.nii.gz', 'T1_FS_coreg', 'FS2dwi_0GenericAffine.mat')"
         mrconvert T1_FS_coreg.nii.gz T1_FS_coreg.mif -force
     fi
+    
+    labelconvert aparc+aseg_coreg.nii.gz \
+                 $FREESURFER_HOME/FreeSurferColorLUT.txt \
+                 $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
+                 fs_parcels_coreg.nii.gz -force
 
     # Check registration
     if ! [ $QC -eq 0 ]; then
@@ -289,9 +293,9 @@ do
     fi
 
     # mrview ${sub_name}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
-    if ! [ -f "sift_${num_tracks}.txt" ]; then
-        # tcksift -act 5tt_coreg.mif -term_number 100k tracks_${num_tracks}.tck wmfod_norm.mif sift_${num_tracks}.tck -nthreads $cores
-        tcksift2 -act 5tt_coreg_hsvs.mif -out_mu sift_mu.txt -out_coeffs sift_coeffs.txt tracks_${num_tracks}.tck wmfod_norm.mif sift_${num_tracks}.txt -nthreads $cores
+    if ! [ -f "sift2_${num_tracks}.txt" ]; then
+        # tcksift -act 5tt_coreg.mif -term_number 100k tracks_${num_tracks}.tck wmfod_norm.mif sift2_${num_tracks}.tck -nthreads $cores
+        tcksift2 -act 5tt_coreg_hsvs.mif -out_mu sift2_mu.txt -out_coeffs sift2_coeffs.txt tracks_${num_tracks}.tck wmfod_norm.mif sift2_${num_tracks}.txt -nthreads $cores
         tckedit tracks_${num_tracks}.tck -number 200k smallerTracts_200k.tck
     fi
             
@@ -305,14 +309,9 @@ do
  
                      
     # Connectome with individual freesurfer atlas regions
-    if ! [ -f "${sub_name}_${num_tracks}_connectome.csv" ]; then
-        labelconvert aparc+aseg_coreg.nii.gz \
-                     $FREESURFER_HOME/FreeSurferColorLUT.txt \
-                     $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
-                     fs_parcels_coreg.nii.gz -force
-                     
+    if ! [ -f "${sub_name}_${num_tracks}_connectome.csv" ]; then                 
         tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
-                       -tck_weights_in sift_${num_tracks}.txt tracks_${num_tracks}.tck fs_parcels_coreg.nii.gz \
+                       -tck_weights_in sift2_${num_tracks}.txt tracks_${num_tracks}.tck fs_parcels_coreg.nii.gz \
                        ${sub_name}_${num_tracks}_connectome.csv \
                        -out_assignment ${sub_name}_${num_tracks}_connectome_assignments.csv
         tckstats tracks_${num_tracks}.tck -dump lengths.txt
@@ -328,7 +327,7 @@ do
         tcksample  tracks_${num_tracks}.tck FA.mif tracks_meanFA_${num_tracks}.csv -nthreads $cores -stat_tck mean -force 
    
         tck2connectome -symmetric -zero_diagonal \
-                       -tck_weights_in sift_${num_tracks}.txt tracks_${num_tracks}.tck fs_parcels_coreg.nii.gz \
+                       -tck_weights_in sift2_${num_tracks}.txt tracks_${num_tracks}.tck fs_parcels_coreg.nii.gz \
                        ${sub_name}_meanFA_${num_tracks}_connectome.csv \
                        -scale_file tracks_meanFA_${num_tracks}.csv -stat_edge mean -force 
     fi
