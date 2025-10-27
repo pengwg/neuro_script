@@ -1,24 +1,19 @@
 clear
 close all
 
-cores = 10;
+cores = 12;
 
-data_path = '/home/peng/Work/fusOUD/FUS';
-subject = 'sub-221-FUS';
-session = 'ses-07';
-session_ref = 'ses-00';
-output_path = '~/Nextcloud/Study/fusOUD/OUD221/';
+data_path = '/home/pw0032/Data/FUS-RCT';
+subject = 'sub-018-RCT';
+session = 'ses-2-00';
+session_ref = 'ses-2-00';
 
-[X, Y, Z] = meshgrid(-25:1:25, -10:1:15, -15:1:15);
-target_AC0 = [ 9.5, 5, -1, 1;
-              -9.5, 5, -1, 1];
-r = 0.7;
-
-D = 4;
-
+target_AC = [ 9.5, 4, -1, 1;
+              -10, 3, -2, 1];
 
 mrtrix_path = fullfile(data_path, subject, session, 'dwi', 'mrtrix3');
-targeting_path = fullfile(mrtrix_path, 'targeting_tracks_ACPC');
+targeting_path = fullfile(mrtrix_path, 'targeting_tracks_AC');
+tckmap_path = fullfile(mrtrix_path, 'tckmap');
 
 if ~isfolder(mrtrix_path)
     fprintf([data_path, '/', subject, '/', session, ' run mrtrix first.\n']);
@@ -43,6 +38,10 @@ if ~isfile(fullfile(mrtrix_path, 'T1_FS_coreg.nii.gz'))
     return;
 end
 
+if ~isfolder(tckmap_path)
+    mkdir(tckmap_path);
+end
+
 if ~isfolder(targeting_path)
     mkdir(targeting_path);
 end
@@ -58,15 +57,6 @@ AC2dwi_transform_data = load([targeting_path '/AC2dwi_0GenericAffine.mat']);
 AC2dwi_transform = ea_antsmat2mat(AC2dwi_transform_data.AffineTransform_double_3_3, ...
                                      AC2dwi_transform_data.fixed);
 
-SUM = single(zeros(size(X)));
-SUM_i = 1 : length(SUM(:));
-
-NAc1 = abs(X(:) - target_AC0(1, 1)) <= D & abs(Y(:) - target_AC0(1, 2)) <= D & abs(Z(:) - target_AC0(1, 3)) <= D;
-NAc2 = abs(X(:) - target_AC0(2, 1)) <= D & abs(Y(:) - target_AC0(2, 2)) <= D & abs(Z(:) - target_AC0(2, 3)) <= D;
-NAc = NAc1 | NAc2;
-SUM_i = SUM_i(NAc);
-
-target_AC = [X(NAc), Y(NAc), Z(NAc), ones(size(X(NAc)))];
 target_dwi = target_AC * AC2dwi_transform';
 
 LOI = labels_of_interest();
@@ -74,69 +64,57 @@ parcels_info = niftiinfo([mrtrix_path '/fs_parcels_coreg.nii.gz']);
 parcels_vol = niftiread(parcels_info);
 parcels_vol(~ismember(parcels_vol, LOI)) = 0;
 parcels_vol(ismember(parcels_vol, LOI)) = 1;
-niftiwrite(parcels_vol, [targeting_path '/include_spec'], parcels_info);
+niftiwrite(parcels_vol, [tckmap_path '/include_spec'], parcels_info);
 
-for k = 1 : length(X(NAc))
-    x0 = target_AC(k, 1);
-    y0 = target_AC(k, 2);
-    z0 = target_AC(k, 3);
+%% Create streamlines from large regions covering targets
+x = target_dwi(1:2, 1);
+y = target_dwi(1:2, 2);
+z = target_dwi(1:2, 3);
 
-    x = target_dwi(k, 1);
-    y = target_dwi(k, 2);
-    z = target_dwi(k, 3);
+r = 10;
+select = '300k';
+tck_file = sprintf('%s/sphere_%d_select_%s_NAc.tck', tckmap_path, r, select);
+disp(['Compute ', tck_file, '...'])
+cmd = sprintf(['tckgen -act %s/5tt_coreg_hsvs.mif -backtrack -include %s/include_spec.nii ' ...
+    '-seed_sphere %f,%f,%f,%f -seed_sphere %f,%f,%f,%f ' ...
+    '%s/wmfod_norm.mif %s -select %s -cutoff 0.06 -maxlength 250 ' ...
+    '-step 0.5 -crop_at_gmwmi -nthreads %d -quiet -force'], ...
+    mrtrix_path, tckmap_path, x(1), y(1), z(1), r, x(2), y(2), z(2), r, mrtrix_path, tck_file, select, cores);
 
-    % tck_file = sprintf('%s/seeds_1000_AC_%d_%d_%d_RAS_%d_%d_%d.tck', targeting_path, x0, y0, z0, round(x), round(y), round(z));
-    tck_file = sprintf('%s/select_100_AC_%d_%d_%d_RAS_%d_%d_%d.tck', targeting_path, x0, y0, z0, round(x), round(y), round(z));
+system(cmd);
 
+% return
+
+%% Create streamlines from targets
+r = 2.5;
+seeds = '1k';
+
+[X, Y, Z] = meshgrid(-2:0.5:2, -2:0.5:2, -2:0.5:2);
+targets_AC = repmat(target_AC, length(X(:)), 1);
+X = [X(:)'; X(:)'];
+Y = [Y(:)'; Y(:)'];
+Z = [Z(:)'; Z(:)'];
+targets_AC(:, 1:3) = targets_AC(:, 1:3) + [X(:), Y(:), Z(:)];
+
+targets_dwi = targets_AC * AC2dwi_transform';
+
+for k = 1 : size(targets_dwi, 1)
+    x0 = targets_AC(k, 1);
+    y0 = targets_AC(k, 2);
+    z0 = targets_AC(k, 3);
+
+    x = targets_dwi(k, 1);
+    y = targets_dwi(k, 2);
+    z = targets_dwi(k, 3);
+
+    tck_file = sprintf('%s/seeds_%s_AC_%2.1f_%2.1f_%2.1f_RAS_%2.1f_%2.1f_%2.1f.tck', targeting_path, seeds, x0, y0, z0, round(x), round(y), round(z));
     disp(['Compute ', tck_file, '...'])
-    if ~isfile(tck_file)
-        % cmd = sprintf('tckgen -act %s/5tt_coreg.mif -backtrack -include %s/include_spec.nii -seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -nthreads %d -force -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi -seeds 1000 -quiet', ...
-        %     mrtrix_path, targeting_path, x, y, z, r, mrtrix_path, tck_file, cores);
-        cmd = sprintf('tckgen -act %s/5tt_coreg_hsvs.mif -backtrack -include %s/include_spec.nii -seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -nthreads %d -force -cutoff 0.06 -maxlength 250 -step 0.5 -crop_at_gmwmi -select 100 -quiet', ...
-            mrtrix_path, targeting_path, x, y, z, r, mrtrix_path, tck_file, cores);
-
-        system(cmd);
-    end
-    
-    num_tracks = count_tracks(tck_file);
-    fprintf('num_tracks = %d\n', num_tracks);
-
-    sift_file = sprintf('%s/sift2_select_100_AC_%d_%d_%d_RAS_%d_%d_%d.txt', targeting_path, x0, y0, z0, round(x), round(y), round(z));
-    disp(['Compute ', sift_file, '...'])
-
-    if num_tracks > 1
-        if ~isfile(sift_file)
-            cmd = sprintf('tcksift2 -act %s/5tt_coreg.mif %s %s/wmfod_norm.mif %s -quiet -force -nthreads %d', mrtrix_path, tck_file, mrtrix_path, sift_file, cores);
-            system(cmd);
-        end        
-        sift_sum = sift2_weights_sum(sift_file);
-    else
-        sift_sum = 0;
-    end
- 
-    fprintf('sift_sum = %d\n\n', sift_sum);
-    SUM(SUM_i(k)) = sift_sum;
-end
-SUM = permute(SUM, [2, 1, 3]);
-
-ref_info = niftiinfo(ref_nii_file);
-ref_info.Datatype = 'single';
-ref_info.PixelDimensions = [1, 1, 1];
-ref_info.Transform.T = eye(4);
-ref_info.ImageSize = size(SUM);
-ref_info.Transform.T(4, 1:3) = [X(1) Y(1) Z(1)];
-
-if ~isfolder(output_path)
-    mkdir(output_path);
+    cmd = sprintf(['tckgen -act %s/5tt_coreg_hsvs.mif -backtrack -include %s/include_spec.nii ' ...
+        '-seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -seeds %s -cutoff 0.06 -maxlength 250 ' ...
+        '-step 0.5 -crop_at_gmwmi -nthreads %d -quiet -force'], mrtrix_path, tckmap_path, x, y, z, r, mrtrix_path, tck_file, seeds, cores);
+    system(cmd);
 end
 
-niftiwrite(SUM, [output_path, 'tck_sift_07'], ref_info);
-
-figure
-imagesc(rot90(SUM(:,:,7)', 2))
-axis equal
-colormap jet
-colorbar
 
 %%
 function mat = ea_antsmat2mat(afftransform, m_Center)
@@ -168,44 +146,13 @@ mat=mat.*...
 end
 
 
-%%
-function count = count_tracks(tck_file)
-
-% Run the command and capture the output
-[status, cmdout] = system(['tckinfo ' tck_file]);
-
-% Check if the command was successful
-if status == 0
-    % Find the line containing 'count:'
-    lines = strsplit(cmdout, '\n');
-    count_line = '';
-    for i = 1:length(lines)
-        if contains(lines{i}, 'count:') && ~contains(lines{i}, 'total_count:')
-            count_line = lines{i};
-            break;
-        end
-    end
-    
-    % Extract the count value
-    if ~isempty(count_line)
-        count_value = regexp(count_line, '\d+', 'match');
-        count = str2double(count_value{1});
-    else
-        error('count not found in tckinfo output.');
-    end
-else
-    error('Failed to execute tckinfo command.');
-end
-
-end
-
 
 %%
 function LOI = labels_of_interest()
 
-% brainRegions={'caudalanteriorcingulate', 'rostralanteriorcingulate',  'posteriorcingulate' ,  'lateralorbitofrontal', ...
-%     'medialorbitofrontal' , 'caudalmiddlefrontal'  ,  'rostralmiddlefrontal' ,'frontalpole' , 'insula' , 'Thalamus', 'Caudate', 'Putamen', 'Pallidum', 'Amygdala'}; %, 'Accumbens'};
-brainRegions={'insula'};
+brainRegions={'caudalanteriorcingulate', 'rostralanteriorcingulate',  'posteriorcingulate' ,  'lateralorbitofrontal', ...
+     'medialorbitofrontal' , 'caudalmiddlefrontal'  ,  'rostralmiddlefrontal' ,'frontalpole' , 'insula' , 'Thalamus', 'Caudate', 'Putamen', 'Pallidum', 'Amygdala'}; %, 'Accumbens'};
+% brainRegions={'insula'};
 
 [labels, names, ~] = xlsread('util/FS_default_labels.xlsx');
 
@@ -219,20 +166,3 @@ LOI = labels(matching);
 
 end
 
-%%
-function sift_sum = sift2_weights_sum(sift_file)
-
-
-fileID = fopen(sift_file, 'r');
-
-% Skip the first line (header line)
-fgetl(fileID);  
-secondLine = fgetl(fileID);
-
-fclose(fileID);
-
-values = str2double(strsplit(secondLine));
-
-sift_sum = sum(values);
-
-end
