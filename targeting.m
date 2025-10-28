@@ -71,8 +71,8 @@ x = target_dwi(1:2, 1);
 y = target_dwi(1:2, 2);
 z = target_dwi(1:2, 3);
 
-r = 10;
-select = '300k';
+r = 2.5;
+select = '100k';
 tck_file = sprintf('%s/sphere_%d_select_%s_NAc.tck', tckmap_path, r, select);
 disp(['Compute ', tck_file, '...'])
 cmd = sprintf(['tckgen -act %s/5tt_coreg_hsvs.mif -backtrack -include %s/include_spec.nii ' ...
@@ -83,13 +83,13 @@ cmd = sprintf(['tckgen -act %s/5tt_coreg_hsvs.mif -backtrack -include %s/include
 
 system(cmd);
 
-% return
+return
 
 %% Create streamlines from targets
 r = 2.5;
-seeds = '1k';
+seeds = '3k';
 
-[X, Y, Z] = meshgrid(-2:0.5:2, -2:0.5:2, -2:0.5:2);
+[X, Y, Z] = meshgrid(-0.5:0.5:0.5, -0.5:0.5:0.5, 0:0.5:1);
 targets_AC = repmat(target_AC, length(X(:)), 1);
 X = [X(:)'; X(:)'];
 Y = [Y(:)'; Y(:)'];
@@ -110,8 +110,12 @@ for k = 1 : size(targets_dwi, 1)
     tck_file = sprintf('%s/seeds_%s_AC_%2.1f_%2.1f_%2.1f_RAS_%2.1f_%2.1f_%2.1f.tck', targeting_path, seeds, x0, y0, z0, round(x), round(y), round(z));
     disp(['Compute ', tck_file, '...'])
     cmd = sprintf(['tckgen -act %s/5tt_coreg_hsvs.mif -backtrack -include %s/include_spec.nii ' ...
-        '-seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -seeds %s -cutoff 0.06 -maxlength 250 ' ...
+        '-seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -seeds %s -cutoff 0.04 -maxlength 250 ' ...
         '-step 0.5 -crop_at_gmwmi -nthreads %d -quiet -force'], mrtrix_path, tckmap_path, x, y, z, r, mrtrix_path, tck_file, seeds, cores);
+
+    % cmd = sprintf(['tckgen -act %s/5tt_coreg_hsvs.mif -backtrack ' ...
+    %     '-seed_sphere %f,%f,%f,%f %s/wmfod_norm.mif %s -select %s -cutoff 0.04 -maxlength 250 ' ...
+    %     '-step 0.5 -crop_at_gmwmi -nthreads %d -quiet -force'], mrtrix_path, x, y, z, r, mrtrix_path, tck_file, seeds, cores);
     system(cmd);
 end
 
