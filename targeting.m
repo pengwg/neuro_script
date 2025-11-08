@@ -83,13 +83,13 @@ cmd = sprintf(['tckgen -act %s/5tt_coreg_hsvs.mif -backtrack -include %s/include
 
 system(cmd);
 
-return
+% return
 
 %% Create streamlines from targets
 r = 2.5;
 seeds = '3k';
 
-[X, Y, Z] = meshgrid(-0.5:0.5:0.5, -0.5:0.5:0.5, 0:0.5:1);
+[X, Y, Z] = meshgrid(-1:1:1, -1:1:1, -1:1:1);
 targets_AC = repmat(target_AC, length(X(:)), 1);
 X = [X(:)'; X(:)'];
 Y = [Y(:)'; Y(:)'];
