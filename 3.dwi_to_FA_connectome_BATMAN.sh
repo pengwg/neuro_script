@@ -29,7 +29,7 @@
 cores=12
 
 # Absolute or relative path of the data folder to where the script located
-data_path=/home/pw0032/Data/FUS-RCT/sub-018-RCT/ses-2-00
+data_path=/mnt/evo/FUS-OUD
 
 num_tracks=10M
 
@@ -37,7 +37,7 @@ num_tracks=10M
 QC=0
 
 # Freesurfer subject path
-# SUBJECTS_DIR=/mnt/msi/Data/FS
+export SUBJECTS_DIR=/mnt/evo/FS
 
 #---------------------------------------------------------------------------
 
@@ -76,10 +76,11 @@ do
 # The following use the session path to construct subject name, e.g. /FUS/sub-212/ses-1/dwi -> sub-212_ses-1    
     IFS='/' read -ra parts <<< ${sessions_dir[$n]}
     N=${#parts[@]}
-    sub_name="${parts[N-3]}_${parts[N-2]}"
-        
-    if ! [ -f "mrtrix3/$sub_name.mif" ]; then
-        mrconvert $sub_dwi_nii mrtrix3/$sub_name.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
+    sub_ses_name="${parts[N-3]}_${parts[N-2]}"
+    sub_name="${parts[N-3]}"
+    
+    if ! [ -f "mrtrix3/$sub_ses_name.mif" ]; then
+        mrconvert $sub_dwi_nii mrtrix3/$sub_ses_name.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
     fi
     
     sub_PA_niis=$(ls *2mm_PA*.nii*)
@@ -93,30 +94,30 @@ do
     cd mrtrix3
     
 # Denoise and degibbs
-    if ! [ -f "${sub_name}_den.mif" ]; then
-        dwidenoise $sub_name.mif ${sub_name}_den.mif -noise noise.mif -nthreads $cores -force
+    if ! [ -f "${sub_ses_name}_den.mif" ]; then
+        dwidenoise $sub_ses_name.mif ${sub_ses_name}_den.mif -noise noise.mif -nthreads $cores -force
         
         # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
-            rm ${sub_name}_den.mif noise.mif
+            rm ${sub_ses_name}_den.mif noise.mif
             exit 1
         fi
-        mrcalc $sub_name.mif  ${sub_name}_den.mif -subtract residual.mif -force
+        mrcalc $sub_ses_name.mif  ${sub_ses_name}_den.mif -subtract residual.mif -force
     fi
     
-    if ! [ -f "${sub_name}_den_unr.mif" ]; then
-        mrdegibbs ${sub_name}_den.mif ${sub_name}_den_unr.mif -nthreads $cores -force
+    if ! [ -f "${sub_ses_name}_den_unr.mif" ]; then
+        mrdegibbs ${sub_ses_name}_den.mif ${sub_ses_name}_den_unr.mif -nthreads $cores -force
         
         # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
-            rm ${sub_name}_den_unr.mif
+            rm ${sub_ses_name}_den_unr.mif
             exit 1
         fi
     fi
 
 # Compute b0 AP and PA
     if ! [ -f b0_pair.mif ]; then
-        dwiextract ${sub_name}_den_unr.mif - -bzero | mrmath - mean mean_b0_AP.mif -axis 3 -force
+        dwiextract ${sub_ses_name}_den_unr.mif - -bzero | mrmath - mean mean_b0_AP.mif -axis 3 -force
         mrcat *2mm_PA*.mif -axis 3 - | mrmath - mean mean_b0_PA.mif -axis 3 -force
         mrcat mean_b0_AP.mif mean_b0_PA.mif -axis 3 b0_pair.mif
     fi    
@@ -128,32 +129,32 @@ do
     fi       
 
 # Wrapper for FSL's topup and eddy
-    if ! [ -f "${sub_name}_den_unr_preproc.mif" ]; then
-        dwifslpreproc ${sub_name}_den_unr.mif ${sub_name}_den_unr_preproc.mif -pe_dir AP -rpe_pair -se_epi b0_pair.mif -topup_options " --nthr="$cores -eddy_options " --slm=linear --data_is_shelled"
+    if ! [ -f "${sub_ses_name}_den_unr_preproc.mif" ]; then
+        dwifslpreproc ${sub_ses_name}_den_unr.mif ${sub_ses_name}_den_unr_preproc.mif -pe_dir AP -rpe_pair -se_epi b0_pair.mif -topup_options " --nthr="$cores -eddy_options " --slm=linear --data_is_shelled"
         
         # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
-            rm ${sub_name}_den_unr_preproc.mif
+            rm ${sub_ses_name}_den_unr_preproc.mif
             exit 1
         fi
     fi
 
 # Bias correction with ANTs
-    if ! [ -f "${sub_name}_den_unr_preproc_unbiased.mif" ]; then
-        dwibiascorrect ants ${sub_name}_den_unr_preproc.mif ${sub_name}_den_unr_preproc_unbiased.mif -bias bias.mif -nthreads $cores -force
+    if ! [ -f "${sub_ses_name}_den_unr_preproc_unbiased.mif" ]; then
+        dwibiascorrect ants ${sub_ses_name}_den_unr_preproc.mif ${sub_ses_name}_den_unr_preproc_unbiased.mif -bias bias.mif -nthreads $cores -force
         if ! [ $? -eq 0 ]; then
-            rm ${sub_name}_den_unr_preproc_unbiased.mif 
+            rm ${sub_ses_name}_den_unr_preproc_unbiased.mif 
             exit 1
         fi
     fi
     
     if ! [ $QC -eq 0 ]; then
-        mrview ${sub_name}_den_unr_preproc_unbiased.mif -overlay.load bias.mif &
+        mrview ${sub_ses_name}_den_unr_preproc_unbiased.mif -overlay.load bias.mif &
     fi
        
 # Estimate response function(s) for spherical deconvolution
     if ! [ -f "wm.txt" ]; then
-        dwi2response dhollander ${sub_name}_den_unr_preproc_unbiased.mif wm.txt gm.txt csf.txt -nthreads $cores
+        dwi2response dhollander ${sub_ses_name}_den_unr_preproc_unbiased.mif wm.txt gm.txt csf.txt -nthreads $cores
         
         # Continue script if dwi2response failed
         if ! [ $? -eq 0 ]; then
@@ -168,16 +169,16 @@ do
     fi
     
 # Generate fibre orientation distributions
-    if ! [ -f "${sub_name}_den_unr_preproc_unbiased_mask.nii.gz" ]; then
-        #dwi2mask ${sub_name}_den_unr_preproc_unbiased.mif mask.mif -force -nthreads $cores
+    if ! [ -f "${sub_ses_name}_den_unr_preproc_unbiased_mask.nii.gz" ]; then
+        #dwi2mask ${sub_ses_name}_den_unr_preproc_unbiased.mif mask.mif -force -nthreads $cores
         
-        mrconvert ${sub_name}_den_unr_preproc_unbiased.mif ${sub_name}_den_unr_preproc_unbiased.nii.gz -force
-        bet ${sub_name}_den_unr_preproc_unbiased.nii.gz ${sub_name}_den_unr_preproc_unbiased -m -n -f 0.2  
-        mrconvert ${sub_name}_den_unr_preproc_unbiased_mask.nii.gz mask.mif
+        mrconvert ${sub_ses_name}_den_unr_preproc_unbiased.mif ${sub_ses_name}_den_unr_preproc_unbiased.nii.gz -force
+        bet ${sub_ses_name}_den_unr_preproc_unbiased.nii.gz ${sub_ses_name}_den_unr_preproc_unbiased -m -n -f 0.2  
+        mrconvert ${sub_ses_name}_den_unr_preproc_unbiased_mask.nii.gz mask.mif
     fi
     
     if ! [ -f "wmfod.mif" ]; then
-        dwi2fod msmt_csd ${sub_name}_den_unr_preproc_unbiased.mif -mask mask.mif wm.txt wmfod.mif gm.txt gmfod.mif csf.txt csffod.mif -nthreads $cores
+        dwi2fod msmt_csd ${sub_ses_name}_den_unr_preproc_unbiased.mif -mask mask.mif wm.txt wmfod.mif gm.txt gmfod.mif csf.txt csffod.mif -nthreads $cores
         
         # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
@@ -192,7 +193,7 @@ do
     fi      
     
     if ! [ $QC -eq 0 ]; then
-        mrview ${sub_name}_den_unr_preproc_unbiased.mif -overlay.load vf.mif &
+        mrview ${sub_ses_name}_den_unr_preproc_unbiased.mif -overlay.load vf.mif &
         # display the white matter FOD on a map which shows the estimated volume fraction of each tissue
         mrview vf.mif -odf.load_sh wmfod.mif &
     fi
@@ -211,10 +212,10 @@ do
     echo -e "${GREEN}${sessions_dir[$n]} FOD done.$NC"
     
 # Run DTIFIT with weighted least squares
-    if ! [ -f "${sub_name}_dti_V1.nii.gz" ]; then
-        dtifit -k ${sub_name}_den_unr_preproc_unbiased.nii.gz \
-               -o ${sub_name}_dti \
-               -m ${sub_name}_den_unr_preproc_unbiased_mask.nii.gz \
+    if ! [ -f "${sub_ses_name}_dti_V1.nii.gz" ]; then
+        dtifit -k ${sub_ses_name}_den_unr_preproc_unbiased.nii.gz \
+               -o ${sub_ses_name}_dti \
+               -m ${sub_ses_name}_den_unr_preproc_unbiased_mask.nii.gz \
                -r ../$sub_dwi.bvec \
                -b ../$sub_dwi.bval \
                -w
@@ -225,18 +226,21 @@ do
 
 # ----------------- Anatomically Constrained Tractography ---------------------
 
+    aparc_file=$(find "$SUBJECTS_DIR" -path "${SUBJECTS_DIR}/${sub_name}_ses-*/mri/aparc+aseg.mgz" -print -quit)
     
-    if ! [ -f "$SUBJECTS_DIR/$sub_name/mri/aparc+aseg.mgz" ]; then
-        echo -e "${YELLOW}$SUBJECTS_DIR/$sub_name/mri/aparc+aseg.mgz not found.$NC ******"
+    if ! [[ -n "$aparc_file" ]]; then
+        echo -e "${YELLOW}${SUBJECTS_DIR}/${sub_name}_ses-*/mri/aparc+aseg.mgz not found.$NC ******"
         continue
     fi
     
+    fs_subject_path=$(dirname "$(dirname "$aparc_file")")
+
 # Register freesurfer segmentation to dwi mean_b0
     if ! [ -f "aparc+aseg_coreg.nii.gz" ]; then
-        mri_convert $SUBJECTS_DIR/$sub_name/mri/T1.mgz T1_FS.nii.gz
-        mri_convert $SUBJECTS_DIR/$sub_name/mri/aparc+aseg.mgz aparc+aseg.nii.gz
+        mri_convert $fs_subject_path/mri/T1.mgz T1_FS.nii.gz
+        mri_convert $fs_subject_path/mri/aparc+aseg.mgz aparc+aseg.nii.gz
         
-        dwiextract ${sub_name}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
+        dwiextract ${sub_ses_name}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
         
         antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m T1_FS.nii.gz -o FS2dwi_ -n $cores
@@ -261,7 +265,7 @@ do
     
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
     if ! [ -f "5tt_coreg_hsvs.mif" ]; then
-        5ttgen hsvs $SUBJECTS_DIR/$sub_name 5tt_hsvs.mif -nthreads $cores
+        5ttgen hsvs $fs_subject_path 5tt_hsvs.mif -nthreads $cores
         mrconvert 5tt_hsvs.mif 5tt_hsvs.nii.gz -force
         matlab -batch "addpath('$basedir'); apply_rigid_transform('5tt_hsvs.nii.gz', '5tt_coreg_hsvs.nii.gz', 'FS2dwi_0GenericAffine.mat')"
         mrconvert 5tt_coreg_hsvs.nii.gz 5tt_coreg_hsvs.mif -force
@@ -292,7 +296,7 @@ do
         fi
     fi
 
-    # mrview ${sub_name}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
+    # mrview ${sub_ses_name}_den_preproc_unbiased.mif -tractography.load smallerTracks_200k.tck
     if ! [ -f "sift2_${num_tracks}.txt" ]; then
         # tcksift -act 5tt_coreg.mif -term_number 100k tracks_${num_tracks}.tck wmfod_norm.mif sift2_${num_tracks}.tck -nthreads $cores
         tcksift2 -act 5tt_coreg_hsvs.mif -out_mu sift2_mu.txt -out_coeffs sift2_coeffs.txt tracks_${num_tracks}.tck wmfod_norm.mif sift2_${num_tracks}.txt -nthreads $cores
@@ -309,18 +313,18 @@ do
  
                      
     # Connectome with individual freesurfer atlas regions
-    if ! [ -f "${sub_name}_${num_tracks}_connectome.csv" ]; then                 
+    if ! [ -f "${sub_ses_name}_${num_tracks}_connectome.csv" ]; then                 
         tck2connectome -symmetric -zero_diagonal -scale_invnodevol \
                        -tck_weights_in sift2_${num_tracks}.txt tracks_${num_tracks}.tck fs_parcels_coreg.nii.gz \
-                       ${sub_name}_${num_tracks}_connectome.csv \
-                       -out_assignment ${sub_name}_${num_tracks}_connectome_assignments.csv
+                       ${sub_ses_name}_${num_tracks}_connectome.csv \
+                       -out_assignment ${sub_ses_name}_${num_tracks}_connectome_assignments.csv
         tckstats tracks_${num_tracks}.tck -dump lengths.txt
     fi
     
     # Connectome scaled by mean FA
-    if ! [ -f "${sub_name}_meanFA_${num_tracks}_connectome.csv" ]; then 
+    if ! [ -f "${sub_ses_name}_meanFA_${num_tracks}_connectome.csv" ]; then 
         # Computing fractional anisotropy of full 10M track file
-        dwi2tensor ${sub_name}_den_unr_preproc_unbiased.mif tensor.mif -force -nthreads $cores
+        dwi2tensor ${sub_ses_name}_den_unr_preproc_unbiased.mif tensor.mif -force -nthreads $cores
         tensor2metric tensor.mif -fa FA.mif -force -nthreads $cores  
 
         # Computing the mean FA of tracks 
@@ -328,7 +332,7 @@ do
    
         tck2connectome -symmetric -zero_diagonal \
                        -tck_weights_in sift2_${num_tracks}.txt tracks_${num_tracks}.tck fs_parcels_coreg.nii.gz \
-                       ${sub_name}_meanFA_${num_tracks}_connectome.csv \
+                       ${sub_ses_name}_meanFA_${num_tracks}_connectome.csv \
                        -scale_file tracks_meanFA_${num_tracks}.csv -stat_edge mean -force 
     fi
    
