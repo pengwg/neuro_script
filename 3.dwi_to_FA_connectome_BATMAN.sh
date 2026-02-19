@@ -29,7 +29,7 @@
 cores=12
 
 # Absolute or relative path of the data folder to where the script located
-data_path=/mnt/evo/FUS-OUD
+data_path=/mnt/evo/FUS-NV
 
 num_tracks=10M
 
@@ -50,10 +50,10 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 BOLD='\033[1m'
 
-sub_nums=(214 215 216 218 219 221b 222 223 228 229 231)
+sub_nums=(018)
 
 for num in "${sub_nums[@]}"; do
-for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do  
+for dwi_path in $(find $data_path/sub-$num-NAV -type d -name dwi); do  
     
     printf "\n${YELLOW}Entering ${dwi_path} ...$NC\n"
     cd ${dwi_path}
@@ -61,7 +61,7 @@ for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do
     mkdir -p mrtrix3
 
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
-    sub_dwi_nii=$(ls *HIGH_RES*.nii* | head -n 1)
+    sub_dwi_nii=$(ls *acq-hardi_dwi.nii.gz | head -n 1)
     if [ -z "$sub_dwi_nii" ]; then
         echo -e "${YELLOW}DWI files not found in ${sessions_dir[$n]}.$NC"
         cd $basedir
@@ -79,7 +79,7 @@ for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do
         mrconvert $sub_dwi_nii mrtrix3/$sub_ses_name.mif -fslgrad $sub_dwi.bvec $sub_dwi.bval    
     fi
     
-    sub_PA_niis=$(ls *2mm_PA*.nii*)
+    sub_PA_niis=$(ls *acq-hardi_dir-pa_run*.nii*)
     for sub_PA_nii in $sub_PA_niis; do
         sub_PA=$(echo "$sub_PA_nii" | sed 's/\.nii.*$//')
         if ! [ -f "mrtrix3/$sub_PA.mif" ]; then
@@ -114,7 +114,7 @@ for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do
 # Compute b0 AP and PA
     if ! [ -f b0_pair.mif ]; then
         dwiextract ${sub_ses_name}_den_unr.mif - -bzero | mrmath - mean mean_b0_AP.mif -axis 3 -force
-        mrcat *2mm_PA*.mif -axis 3 - | mrmath - mean mean_b0_PA.mif -axis 3 -force
+        mrcat *acq-hardi_dir-pa_run*.mif -axis 3 - | mrmath - mean mean_b0_PA.mif -axis 3 -force
         mrcat mean_b0_AP.mif mean_b0_PA.mif -axis 3 b0_pair.mif
     fi    
     
@@ -150,7 +150,7 @@ for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do
        
 # Estimate response function(s) for spherical deconvolution
     if ! [ -f "wm.txt" ]; then
-        dwi2response dhollander ${sub_ses_name}_den_unr_preproc_unbiased.mif wm.txt gm.txt csf.txt -nthreads $cores
+        dwi2response dhollander ${sub_ses_name}_den_unr_preproc_unbiased.mif wm.txt gm.txt csf.txt -force -nthreads $cores
         
         # Continue script if dwi2response failed
         if ! [ $? -eq 0 ]; then
@@ -196,7 +196,7 @@ for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do
  
 # Intensity normalization 
     if ! [ -f "wmfod_norm.mif" ]; then
-        mtnormalise wmfod.mif wmfod_norm.mif gmfod.mif gmfod_norm.mif csffod.mif csffod_norm.mif -mask mask.mif -nthreads $cores
+        mtnormalise wmfod.mif wmfod_norm.mif gmfod.mif gmfod_norm.mif csffod.mif csffod_norm.mif -mask mask.mif -force -nthreads $cores
         
         # Clean up and exit if user presses Ctrl->C
         if ! [ $? -eq 0 ]; then
@@ -222,10 +222,10 @@ for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do
 
 # ----------------- Anatomically Constrained Tractography ---------------------
 
-    aparc_file=$(find "$SUBJECTS_DIR" -path "${SUBJECTS_DIR}/${sub_name}_ses-*/mri/aparc+aseg.mgz" -print -quit)
+    aparc_file=$(find "$SUBJECTS_DIR" -path "${SUBJECTS_DIR}/${sub_name}*/mri/aparc+aseg.mgz" -print -quit)
     
     if ! [[ -n "$aparc_file" ]]; then
-        echo -e "${YELLOW}${SUBJECTS_DIR}/${sub_name}_ses-*/mri/aparc+aseg.mgz not found.$NC ******"
+        echo -e "${YELLOW}${SUBJECTS_DIR}/${sub_name}*/mri/aparc+aseg.mgz not found.$NC ******"
         continue
     fi
     
@@ -259,7 +259,7 @@ for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do
         
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
     if ! [ -f "5tt_coreg_hsvs.mif" ]; then
-        5ttgen hsvs $fs_subject_path 5tt_hsvs.mif -nthreads $cores
+        5ttgen hsvs $fs_subject_path 5tt_hsvs.mif -force -nthreads $cores
         mrconvert 5tt_hsvs.mif 5tt_hsvs.nii.gz -force
         mri_vol2vol --nearest --mov 5tt_hsvs.nii.gz --targ mean_b0_ref.nii.gz --o 5tt_coreg_hsvs.nii.gz --lta FS2dwi.lta --keep-precision
         mrconvert 5tt_coreg_hsvs.nii.gz 5tt_coreg_hsvs.mif -force
@@ -278,6 +278,8 @@ for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do
         tensor2metric tensor.mif -ad AD.mif -force -nthreads $cores
     fi
         
+    continue
+    
     continue
     
     if ! [ $QC -eq 0 ]; then
