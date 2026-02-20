@@ -237,20 +237,15 @@ do
 
 # Register freesurfer segmentation to dwi mean_b0
     if ! [ -f "aparc+aseg_coreg.nii.gz" ]; then
-        mri_convert $fs_subject_path/mri/T1.mgz T1_FS.nii.gz
+        mri_convert $fs_subject_path/mri/brain.mgz T1_FS.nii.gz
         mri_convert $fs_subject_path/mri/aparc+aseg.mgz aparc+aseg.nii.gz
         
         dwiextract ${sub_ses_name}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
         
-        antsRegistrationSyNQuick.sh -d 3 -t r -f mean_b0_preprocessed.nii.gz -m T1_FS.nii.gz -o FS2dwi_ -n $cores
-        
-        # Use matlab method to apply image header transformation, avoiding interpolation of image data
-        # Requires apply_rigid_transform.m in the script folder
-        matlab -batch "addpath('$basedir'); apply_rigid_transform('aparc+aseg.nii.gz', 'aparc+aseg_coreg', 'FS2dwi_0GenericAffine.mat')"
-        # Also apply the transform to anatomic volume for checking purpose
-        matlab -batch "addpath('$basedir'); apply_rigid_transform('T1_FS.nii.gz', 'T1_FS_coreg', 'FS2dwi_0GenericAffine.mat')"
-        mrconvert T1_FS_coreg.nii.gz T1_FS_coreg.mif -force
+        mri_synthmorph register -m rigid -t FS2dwi.lta -T FS2dwi.inv.lta T1_FS.nii.gz mean_b0_preprocessed.nii.gz -g -j $cores
+        mri_vol2vol --mov T1_FS.nii.gz --targ T1_FS.nii.gz --o T1_FS_coreg.nii.gz --lta FS2dwi.lta --keep-precision
+        mri_vol2vol --nearest --mov aparc+aseg.nii.gz --targ aparc+aseg.nii.gz --o aparc+aseg_coreg.nii.gz --lta FS2dwi.lta --keep-precision
     fi
     
     labelconvert aparc+aseg_coreg.nii.gz \
@@ -262,12 +257,12 @@ do
     if ! [ $QC -eq 0 ]; then
         mrview mean_b0_preprocessed.mif -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz &
     fi
-    
+
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
     if ! [ -f "5tt_coreg_hsvs.mif" ]; then
         5ttgen hsvs $fs_subject_path 5tt_hsvs.mif -nthreads $cores
         mrconvert 5tt_hsvs.mif 5tt_hsvs.nii.gz -force
-        matlab -batch "addpath('$basedir'); apply_rigid_transform('5tt_hsvs.nii.gz', '5tt_coreg_hsvs.nii.gz', 'FS2dwi_0GenericAffine.mat')"
+        mri_vol2vol --nearest --mov 5tt_hsvs.nii.gz --targ 5tt_hsvs.nii.gz --o 5tt_coreg_hsvs.nii.gz --lta FS2dwi.lta --keep-precision
         mrconvert 5tt_coreg_hsvs.nii.gz 5tt_coreg_hsvs.mif -force
         
         # Continue script if 5ttgen failed
@@ -276,6 +271,7 @@ do
             continue
         fi
     fi
+    continue
     
     if ! [ $QC -eq 0 ]; then
         mrview T1_FS_coreg.nii.gz -overlay.load 5tt_coreg_hsvs.mif &
