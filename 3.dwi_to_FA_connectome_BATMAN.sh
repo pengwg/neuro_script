@@ -244,10 +244,13 @@ do
         mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
         
         mri_synthmorph register -m rigid -t FS2dwi.lta -T FS2dwi.inv.lta T1_FS.nii.gz mean_b0_preprocessed.nii.gz -g -j $cores
-        mri_vol2vol --mov T1_FS.nii.gz --targ T1_FS.nii.gz --o T1_FS_coreg.nii.gz --lta FS2dwi.lta --keep-precision
-        mri_vol2vol --nearest --mov aparc+aseg.nii.gz --targ aparc+aseg.nii.gz --o aparc+aseg_coreg.nii.gz --lta FS2dwi.lta --keep-precision
+        
+        spacing=$(fslinfo T1_FS.nii.gz | awk '/^pixdim[123]/ {print $2}')
+        ResampleImageBySpacing 3 mean_b0_preprocessed.nii.gz mean_b0_ref.nii.gz $spacing 0 0 1
+        mri_vol2vol --mov T1_FS.nii.gz --targ mean_b0_ref.nii.gz --o T1_FS_coreg.nii.gz --lta FS2dwi.lta --keep-precision
+        mri_vol2vol --nearest --mov aparc+aseg.nii.gz --targ mean_b0_ref.nii.gz --o aparc+aseg_coreg.nii.gz --lta FS2dwi.lta --keep-precision
     fi
-    
+
     labelconvert aparc+aseg_coreg.nii.gz \
                  $FREESURFER_HOME/FreeSurferColorLUT.txt \
                  $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
@@ -257,12 +260,12 @@ do
     if ! [ $QC -eq 0 ]; then
         mrview mean_b0_preprocessed.mif -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz &
     fi
-
+        
 # Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
     if ! [ -f "5tt_coreg_hsvs.mif" ]; then
         5ttgen hsvs $fs_subject_path 5tt_hsvs.mif -nthreads $cores
         mrconvert 5tt_hsvs.mif 5tt_hsvs.nii.gz -force
-        mri_vol2vol --nearest --mov 5tt_hsvs.nii.gz --targ 5tt_hsvs.nii.gz --o 5tt_coreg_hsvs.nii.gz --lta FS2dwi.lta --keep-precision
+        mri_vol2vol --nearest --mov 5tt_hsvs.nii.gz --targ mean_b0_ref.nii.gz --o 5tt_coreg_hsvs.nii.gz --lta FS2dwi.lta --keep-precision
         mrconvert 5tt_coreg_hsvs.nii.gz 5tt_coreg_hsvs.mif -force
         
         # Continue script if 5ttgen failed
