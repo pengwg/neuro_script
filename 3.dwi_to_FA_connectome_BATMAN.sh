@@ -43,9 +43,6 @@ export SUBJECTS_DIR=/mnt/evo/FS
 
 cd $(dirname %0)
 
-# Find all the subfolders named dwi and saved the paths to sessions_dir as an array
-mapfile -t sessions_dir < <(find $data_path -type d -name dwi)
-
 basedir=$(pwd)
 
 YELLOW='\033[0;33m'
@@ -53,16 +50,15 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 BOLD='\033[1m'
 
-for (( n=0; n<${#sessions_dir[@]}; n++ ))
-do
-    printf "\n${YELLOW}Entering ${sessions_dir[$n]} ...$NC\n"
-    cd ${sessions_dir[$n]}
+sub_nums=(214 215 216 218 219 221b 222 223 228 229 231)
 
-    echo ${sessions_dir[$n]}
+for num in "${sub_nums[@]}"; do
+for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do  
+    
+    printf "\n${YELLOW}Entering ${dwi_path} ...$NC\n"
+    cd ${dwi_path}
 
-    if ! [ -d mrtrix3 ]; then
-        mkdir mrtrix3
-    fi
+    mkdir -p mrtrix3
 
 # Search NIFTIs by HIGH_RES and 2mm_PA in filesnames and convert them to mif
     sub_dwi_nii=$(ls *HIGH_RES*.nii* | head -n 1)
@@ -74,7 +70,7 @@ do
     sub_dwi=$(echo "$sub_dwi_nii" | sed 's/\.nii.*$//')
     
 # The following use the session path to construct subject name, e.g. /FUS/sub-212/ses-1/dwi -> sub-212_ses-1    
-    IFS='/' read -ra parts <<< ${sessions_dir[$n]}
+    IFS='/' read -ra parts <<< ${dwi_path}
     N=${#parts[@]}
     sub_ses_name="${parts[N-3]}_${parts[N-2]}"
     sub_name="${parts[N-3]}"
@@ -339,6 +335,7 @@ do
     echo -e "${YELLOW}${BOLD}All done for ${sessions_dir[$n]}.$NC  $(date '+%Y-%m-%d %H:%M')" 
 
     cd $basedir
+done
 done
 
 
