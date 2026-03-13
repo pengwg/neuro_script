@@ -270,6 +270,14 @@ for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do
             continue
         fi
     fi
+    
+    if [ ! -f "AD.mif" ]; then
+        # Computing fractional anisotropy of full 10M track file
+        dwi2tensor ${sub_ses_name}_den_unr_preproc_unbiased.mif tensor.mif -force -nthreads $cores
+        tensor2metric tensor.mif -fa FA.mif -force -nthreads $cores
+        tensor2metric tensor.mif -ad AD.mif -force -nthreads $cores
+    fi
+        
     continue
     
     if ! [ $QC -eq 0 ]; then
@@ -318,10 +326,6 @@ for dwi_path in $(find $data_path/sub-$num-FUS -type d -name dwi); do
     
     # Connectome scaled by mean FA
     if ! [ -f "${sub_ses_name}_meanFA_${num_tracks}_connectome.csv" ]; then 
-        # Computing fractional anisotropy of full 10M track file
-        dwi2tensor ${sub_ses_name}_den_unr_preproc_unbiased.mif tensor.mif -force -nthreads $cores
-        tensor2metric tensor.mif -fa FA.mif -force -nthreads $cores  
-
         # Computing the mean FA of tracks 
         tcksample  tracks_${num_tracks}.tck FA.mif tracks_meanFA_${num_tracks}.csv -nthreads $cores -stat_tck mean -force 
    
