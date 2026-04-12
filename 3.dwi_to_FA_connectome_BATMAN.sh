@@ -277,15 +277,12 @@ for dwi_path in $(find $data_path/sub-$num-NAV -type d -name dwi); do
         tensor2metric tensor.mif -fa FA.mif -force -nthreads $cores
         tensor2metric tensor.mif -ad AD.mif -force -nthreads $cores
     fi
-        
-    continue
-    
-    continue
     
     if ! [ $QC -eq 0 ]; then
         mrview T1_FS_coreg.nii.gz -overlay.load 5tt_coreg_hsvs.mif &
     fi
     
+#------------------- Whole brain tracks -----------------------------    
     if ! [ -f "gmwmSeed_coreg.mif" ]; then
         5tt2gmwmi 5tt_coreg_hsvs.mif gmwmSeed_coreg.mif -nthreads $cores -force
     fi
