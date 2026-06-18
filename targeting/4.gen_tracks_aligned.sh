@@ -1,16 +1,14 @@
 #!/bin/bash
 
-data_path=/mnt/evo/FUS-NV
+data_path=/mnt/evo/FUS-RCT
 SUBJECTS_DIR=/mnt/evo/FS
 
-r=2.5
 num_tracks=10M
-postfix=reduced
 
 threads=12
 rerun=0
 
-sub_name=sub-019-NAV
+sub_name=sub-025-RCT
 
 dwi_path=$(find $data_path/${sub_name} -type d -name dwi | head -n 1)
 T1_aligned=$(find ${dwi_path}/../anat -name "*_aligned.nii.gz")
@@ -55,7 +53,7 @@ mrtransform fs_parcels.nii.gz -linear FS2aligned.matrix.txt fs_parcels_aligned.n
 if [[ ! -f "tracks_${num_tracks}_aligned.tck" ]]; then
     tckgen -act 5tt_hsvs_aligned.mif -backtrack -seed_gmwmi gmwmSeed_aligned.mif -select ${num_tracks} \
         wmfod_norm_aligned.mif tracks_${num_tracks}_aligned.tck -nthreads $threads \
-        -cutoff 0.08 -maxlength 250 -step 0.5 -crop_at_gmwmi
+        -cutoff 0.08 -crop_at_gmwmi
         
     # Clean up and exit if user presses Ctrl->C
     if ! [[ $? -eq 0 ]]  ; then
@@ -64,6 +62,7 @@ if [[ ! -f "tracks_${num_tracks}_aligned.tck" ]]; then
     fi
 fi
 
-# tcksift2 -act 5tt_hsvs_aligned.mif tracks_${num_tracks}_aligned.tck wmfod_norm_aligned.mif sift2_${num_tracks}_aligned.txt -nthreads $threads
-
+if [[ ! -f "sift2_${num_tracks}_aligned.txt" ]]; then
+    tcksift2 -act 5tt_hsvs_aligned.mif tracks_${num_tracks}_aligned.tck wmfod_norm_aligned.mif sift2_${num_tracks}_aligned.txt -nthreads $threads
+fi
 
