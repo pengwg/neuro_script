@@ -50,10 +50,10 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 BOLD='\033[1m'
 
-sub_nums=(018)
+sub_nums=(004 006 008 010 011 016 017 018 019 020 021)
 
 for num in "${sub_nums[@]}"; do
-for dwi_path in $(find $data_path/sub-$num-NAV -type d -name dwi); do  
+for dwi_path in $(find $data_path/sub-OUDNV0$num -type d -name dwi); do  
     
     printf "\n${YELLOW}Entering ${dwi_path} ...$NC\n"
     cd ${dwi_path}
@@ -142,6 +142,9 @@ for dwi_path in $(find $data_path/sub-$num-NAV -type d -name dwi); do
             rm ${sub_ses_name}_den_unr_preproc_unbiased.mif 
             exit 1
         fi
+        
+        dwiextract ${sub_ses_name}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
+        mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
     fi
     
     if ! [ $QC -eq 0 ]; then
@@ -218,7 +221,6 @@ for dwi_path in $(find $data_path/sub-$num-NAV -type d -name dwi); do
     fi
     
     echo -e "${GREEN}${sessions_dir[$n]} DTI done.$NC"
-   
 
 # ----------------- Anatomically Constrained Tractography ---------------------
 
@@ -231,38 +233,10 @@ for dwi_path in $(find $data_path/sub-$num-NAV -type d -name dwi); do
     
     fs_subject_path=$(dirname "$(dirname "$aparc_file")")
 
-# Register freesurfer segmentation to dwi mean_b0
-    if ! [ -f "aparc+aseg_coreg.nii.gz" ]; then
+    # Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
+    if ! [ -f "5tt_hsvs.mif" ]; then
         mri_convert $fs_subject_path/mri/brain.mgz T1_FS.nii.gz
-        mri_convert $fs_subject_path/mri/aparc+aseg.mgz aparc+aseg.nii.gz
-        
-        dwiextract ${sub_ses_name}_den_unr_preproc_unbiased.mif - -bzero | mrmath - mean mean_b0_preprocessed.mif -axis 3 -force
-        mrconvert mean_b0_preprocessed.mif mean_b0_preprocessed.nii.gz -force
-        
-        mri_synthmorph register -m rigid -t FS2dwi.lta -T FS2dwi.inv.lta T1_FS.nii.gz mean_b0_preprocessed.nii.gz -g -j $cores
-        
-        spacing=$(fslinfo T1_FS.nii.gz | awk '/^pixdim[123]/ {print $2}')
-        ResampleImageBySpacing 3 mean_b0_preprocessed.nii.gz mean_b0_ref.nii.gz $spacing 0 0 1
-        mri_vol2vol --mov T1_FS.nii.gz --targ mean_b0_ref.nii.gz --o T1_FS_coreg.nii.gz --lta FS2dwi.lta --keep-precision
-        mri_vol2vol --nearest --mov aparc+aseg.nii.gz --targ mean_b0_ref.nii.gz --o aparc+aseg_coreg.nii.gz --lta FS2dwi.lta --keep-precision
-    fi
-
-    labelconvert aparc+aseg_coreg.nii.gz \
-                 $FREESURFER_HOME/FreeSurferColorLUT.txt \
-                 $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
-                 fs_parcels_coreg.nii.gz -force
-
-    # Check registration
-    if ! [ $QC -eq 0 ]; then
-        mrview mean_b0_preprocessed.mif -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz &
-    fi
-        
-# Create 5tt registered T1 volume and gray matter/white matter boundary seed using freesurfer segmentation
-    if ! [ -f "5tt_coreg_hsvs.mif" ]; then
         5ttgen hsvs $fs_subject_path 5tt_hsvs.mif -force -nthreads $cores
-        mrconvert 5tt_hsvs.mif 5tt_hsvs.nii.gz -force
-        mri_vol2vol --nearest --mov 5tt_hsvs.nii.gz --targ mean_b0_ref.nii.gz --o 5tt_coreg_hsvs.nii.gz --lta FS2dwi.lta --keep-precision
-        mrconvert 5tt_coreg_hsvs.nii.gz 5tt_coreg_hsvs.mif -force
         
         # Continue script if 5ttgen failed
         if ! [ $? -eq 0 ]; then
@@ -278,13 +252,40 @@ for dwi_path in $(find $data_path/sub-$num-NAV -type d -name dwi); do
         tensor2metric tensor.mif -ad AD.mif -force -nthreads $cores
     fi
     
-    if ! [ $QC -eq 0 ]; then
-        mrview T1_FS_coreg.nii.gz -overlay.load 5tt_coreg_hsvs.mif &
+    cd $basedir
+    continue
+# Skip the rest of the script. Tracks will be generated in AC-PC aligned space    
+
+# Register freesurfer segmentation to dwi mean_b0
+    if ! [ -f "aparc+aseg_coreg.nii.gz" ]; then
+        mri_convert $fs_subject_path/mri/aparc+aseg.mgz aparc+aseg.nii.gz
+        
+        mri_synthmorph register -m rigid -t FS2dwi.lta -T FS2dwi.inv.lta T1_FS.nii.gz mean_b0_preprocessed.nii.gz -g -j $cores
+        lta_convert --inlta FS2dwi.lta --outitk FS2dwi.itk.txt
+        transformconvert FS2dwi.itk.txt itk_import FS2dwi.matrix.txt
+        
+        mrtransform T1_FS.nii.gz -linear FS2dwi.matrix.txt T1_FS_coreg.nii.gz -force
+        mrtransform aparc+aseg.nii.gz -linear FS2dwi.matrix.txt aparc+aseg_coreg.nii.gz -force
     fi
-    
+
+    labelconvert aparc+aseg_coreg.nii.gz \
+                 $FREESURFER_HOME/FreeSurferColorLUT.txt \
+                 $(dirname $(which mrview))/../share/mrtrix3/labelconvert/fs_default.txt \
+                 fs_parcels_coreg.nii.gz -force
+
+    # Check registration
+    if ! [ $QC -eq 0 ]; then
+        mrview mean_b0_preprocessed.mif -overlay.load T1_FS_coreg.nii.gz -overlay.load aparc+aseg_coreg.nii.gz &
+    fi
+
 #------------------- Whole brain tracks -----------------------------    
     if ! [ -f "gmwmSeed_coreg.mif" ]; then
+        mrtransform 5tt_hsvs.mif -linear FS2dwi.matrix.txt 5tt_coreg_hsvs.mif -force
         5tt2gmwmi 5tt_coreg_hsvs.mif gmwmSeed_coreg.mif -nthreads $cores -force
+    fi
+
+    if ! [ $QC -eq 0 ]; then
+        mrview T1_FS_coreg.nii.gz -overlay.load 5tt_coreg_hsvs.mif &
     fi
     
 # Tracks generation
